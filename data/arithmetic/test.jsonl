@@ -1,0 +1,1000 @@
+{"question": "What is (18 + 50)?", "answer": "The answer is 68", "depth": 1}
+{"question": "What is ((18 + 3) - 35)?", "answer": "The answer is -14", "depth": 2}
+{"question": "What is (((22 - 4) + 9) - 36)?", "answer": "The answer is -9", "depth": 3}
+{"question": "What is ((45 + 11) + 28)?", "answer": "The answer is 84", "depth": 2}
+{"question": "What is (39 - 5)?", "answer": "The answer is 34", "depth": 1}
+{"question": "What is (21 - 7)?", "answer": "The answer is 14", "depth": 1}
+{"question": "What is (6 + 9)?", "answer": "The answer is 15", "depth": 1}
+{"question": "What is (19 - 37)?", "answer": "The answer is -18", "depth": 1}
+{"question": "What is ((17 - 3) - 22)?", "answer": "The answer is -8", "depth": 2}
+{"question": "What is (((31 + 39) - 1) - 50)?", "answer": "The answer is 19", "depth": 3}
+{"question": "What is (((33 - 44) - 34) - 24)?", "answer": "The answer is -69", "depth": 3}
+{"question": "What is (((3 + 47) + 32) - 11)?", "answer": "The answer is 71", "depth": 3}
+{"question": "What is ((22 - 5) - 25)?", "answer": "The answer is -8", "depth": 2}
+{"question": "What is (((50 - 2) + 38) + 41)?", "answer": "The answer is 127", "depth": 3}
+{"question": "What is ((1 - 15) - 35)?", "answer": "The answer is -49", "depth": 2}
+{"question": "What is (((47 + 41) - 32) + 35)?", "answer": "The answer is 91", "depth": 3}
+{"question": "What is ((12 + 35) - 25)?", "answer": "The answer is 22", "depth": 2}
+{"question": "What is ((3 + 9) - 13)?", "answer": "The answer is -1", "depth": 2}
+{"question": "What is (17 - 44)?", "answer": "The answer is -27", "depth": 1}
+{"question": "What is ((28 - 1) + 40)?", "answer": "The answer is 67", "depth": 2}
+{"question": "What is (33 - 46)?", "answer": "The answer is -13", "depth": 1}
+{"question": "What is (6 - 1)?", "answer": "The answer is 5", "depth": 1}
+{"question": "What is (((25 + 35) - 2) - 17)?", "answer": "The answer is 41", "depth": 3}
+{"question": "What is ((3 - 27) - 2)?", "answer": "The answer is -26", "depth": 2}
+{"question": "What is (((41 + 27) + 46) + 24)?", "answer": "The answer is 138", "depth": 3}
+{"question": "What is (((16 + 41) + 49) - 35)?", "answer": "The answer is 71", "depth": 3}
+{"question": "What is ((10 - 50) - 24)?", "answer": "The answer is -64", "depth": 2}
+{"question": "What is (35 - 34)?", "answer": "The answer is 1", "depth": 1}
+{"question": "What is (41 + 38)?", "answer": "The answer is 79", "depth": 1}
+{"question": "What is ((28 + 48) + 30)?", "answer": "The answer is 106", "depth": 2}
+{"question": "What is (((2 - 29) - 20) - 50)?", "answer": "The answer is -97", "depth": 3}
+{"question": "What is (11 - 34)?", "answer": "The answer is -23", "depth": 1}
+{"question": "What is (((36 + 22) + 35) - 15)?", "answer": "The answer is 78", "depth": 3}
+{"question": "What is (((22 + 18) + 14) - 17)?", "answer": "The answer is 37", "depth": 3}
+{"question": "What is ((3 + 13) + 49)?", "answer": "The answer is 65", "depth": 2}
+{"question": "What is (13 - 37)?", "answer": "The answer is -24", "depth": 1}
+{"question": "What is (6 - 6)?", "answer": "The answer is 0", "depth": 1}
+{"question": "What is ((36 + 35) + 31)?", "answer": "The answer is 102", "depth": 2}
+{"question": "What is ((47 - 50) + 17)?", "answer": "The answer is 14", "depth": 2}
+{"question": "What is (((37 - 22) - 15) + 40)?", "answer": "The answer is 40", "depth": 3}
+{"question": "What is (((1 - 22) + 45) + 24)?", "answer": "The answer is 48", "depth": 3}
+{"question": "What is ((24 - 21) - 14)?", "answer": "The answer is -11", "depth": 2}
+{"question": "What is ((22 + 12) - 4)?", "answer": "The answer is 30", "depth": 2}
+{"question": "What is ((25 - 12) - 24)?", "answer": "The answer is -11", "depth": 2}
+{"question": "What is (19 + 17)?", "answer": "The answer is 36", "depth": 1}
+{"question": "What is (((39 - 4) - 4) - 20)?", "answer": "The answer is 11", "depth": 3}
+{"question": "What is (30 - 16)?", "answer": "The answer is 14", "depth": 1}
+{"question": "What is (((29 - 29) - 16) - 33)?", "answer": "The answer is -49", "depth": 3}
+{"question": "What is (((18 - 4) + 8) + 28)?", "answer": "The answer is 50", "depth": 3}
+{"question": "What is (((32 + 31) + 31) + 21)?", "answer": "The answer is 115", "depth": 3}
+{"question": "What is ((15 + 30) - 46)?", "answer": "The answer is -1", "depth": 2}
+{"question": "What is (((1 - 47) - 15) + 17)?", "answer": "The answer is -44", "depth": 3}
+{"question": "What is ((11 - 23) - 3)?", "answer": "The answer is -15", "depth": 2}
+{"question": "What is (((1 - 44) + 13) + 18)?", "answer": "The answer is -12", "depth": 3}
+{"question": "What is (((11 + 20) - 30) + 19)?", "answer": "The answer is 20", "depth": 3}
+{"question": "What is (((6 + 29) - 13) + 41)?", "answer": "The answer is 63", "depth": 3}
+{"question": "What is ((27 - 8) + 37)?", "answer": "The answer is 56", "depth": 2}
+{"question": "What is ((49 - 34) - 10)?", "answer": "The answer is 5", "depth": 2}
+{"question": "What is ((9 + 14) + 3)?", "answer": "The answer is 26", "depth": 2}
+{"question": "What is (14 + 26)?", "answer": "The answer is 40", "depth": 1}
+{"question": "What is (1 - 42)?", "answer": "The answer is -41", "depth": 1}
+{"question": "What is ((36 + 3) + 47)?", "answer": "The answer is 86", "depth": 2}
+{"question": "What is ((45 - 12) - 8)?", "answer": "The answer is 25", "depth": 2}
+{"question": "What is ((43 - 14) + 48)?", "answer": "The answer is 77", "depth": 2}
+{"question": "What is ((10 - 15) - 15)?", "answer": "The answer is -20", "depth": 2}
+{"question": "What is (((43 - 26) + 25) + 32)?", "answer": "The answer is 74", "depth": 3}
+{"question": "What is (19 + 31)?", "answer": "The answer is 50", "depth": 1}
+{"question": "What is (((47 + 9) + 30) - 36)?", "answer": "The answer is 50", "depth": 3}
+{"question": "What is (((2 - 34) - 19) - 14)?", "answer": "The answer is -65", "depth": 3}
+{"question": "What is ((4 + 33) + 38)?", "answer": "The answer is 75", "depth": 2}
+{"question": "What is (((21 + 50) + 25) + 27)?", "answer": "The answer is 123", "depth": 3}
+{"question": "What is (31 + 1)?", "answer": "The answer is 32", "depth": 1}
+{"question": "What is (6 - 3)?", "answer": "The answer is 3", "depth": 1}
+{"question": "What is (10 + 30)?", "answer": "The answer is 40", "depth": 1}
+{"question": "What is ((13 - 4) + 10)?", "answer": "The answer is 19", "depth": 2}
+{"question": "What is (30 + 9)?", "answer": "The answer is 39", "depth": 1}
+{"question": "What is (((3 - 29) + 16) + 28)?", "answer": "The answer is 18", "depth": 3}
+{"question": "What is ((43 + 6) + 19)?", "answer": "The answer is 68", "depth": 2}
+{"question": "What is ((43 - 23) + 4)?", "answer": "The answer is 24", "depth": 2}
+{"question": "What is (36 + 8)?", "answer": "The answer is 44", "depth": 1}
+{"question": "What is (19 + 9)?", "answer": "The answer is 28", "depth": 1}
+{"question": "What is (((1 - 27) - 24) + 27)?", "answer": "The answer is -23", "depth": 3}
+{"question": "What is (39 - 23)?", "answer": "The answer is 16", "depth": 1}
+{"question": "What is ((45 + 23) + 42)?", "answer": "The answer is 110", "depth": 2}
+{"question": "What is ((6 - 47) + 40)?", "answer": "The answer is -1", "depth": 2}
+{"question": "What is ((29 + 47) + 26)?", "answer": "The answer is 102", "depth": 2}
+{"question": "What is (((44 + 13) + 47) - 28)?", "answer": "The answer is 76", "depth": 3}
+{"question": "What is ((19 + 25) + 17)?", "answer": "The answer is 61", "depth": 2}
+{"question": "What is (((2 + 50) + 24) + 7)?", "answer": "The answer is 83", "depth": 3}
+{"question": "What is (46 + 18)?", "answer": "The answer is 64", "depth": 1}
+{"question": "What is (5 - 4)?", "answer": "The answer is 1", "depth": 1}
+{"question": "What is ((24 + 17) - 6)?", "answer": "The answer is 35", "depth": 2}
+{"question": "What is (((17 + 43) + 22) - 41)?", "answer": "The answer is 41", "depth": 3}
+{"question": "What is (((20 - 16) + 6) + 40)?", "answer": "The answer is 50", "depth": 3}
+{"question": "What is (50 - 25)?", "answer": "The answer is 25", "depth": 1}
+{"question": "What is ((44 + 9) - 1)?", "answer": "The answer is 52", "depth": 2}
+{"question": "What is ((14 + 1) - 9)?", "answer": "The answer is 6", "depth": 2}
+{"question": "What is (12 - 27)?", "answer": "The answer is -15", "depth": 1}
+{"question": "What is (50 - 20)?", "answer": "The answer is 30", "depth": 1}
+{"question": "What is (2 + 37)?", "answer": "The answer is 39", "depth": 1}
+{"question": "What is ((18 + 41) + 20)?", "answer": "The answer is 79", "depth": 2}
+{"question": "What is ((39 - 2) + 20)?", "answer": "The answer is 57", "depth": 2}
+{"question": "What is ((13 - 14) - 3)?", "answer": "The answer is -4", "depth": 2}
+{"question": "What is ((5 + 11) + 36)?", "answer": "The answer is 52", "depth": 2}
+{"question": "What is (5 - 38)?", "answer": "The answer is -33", "depth": 1}
+{"question": "What is (26 - 46)?", "answer": "The answer is -20", "depth": 1}
+{"question": "What is (((24 + 14) + 29) + 35)?", "answer": "The answer is 102", "depth": 3}
+{"question": "What is ((45 + 14) + 10)?", "answer": "The answer is 69", "depth": 2}
+{"question": "What is (((34 + 46) + 27) - 40)?", "answer": "The answer is 67", "depth": 3}
+{"question": "What is ((22 + 42) - 28)?", "answer": "The answer is 36", "depth": 2}
+{"question": "What is (((44 + 6) + 14) + 43)?", "answer": "The answer is 107", "depth": 3}
+{"question": "What is (((9 - 24) - 46) - 19)?", "answer": "The answer is -80", "depth": 3}
+{"question": "What is ((12 + 1) + 34)?", "answer": "The answer is 47", "depth": 2}
+{"question": "What is (((43 + 30) + 41) - 2)?", "answer": "The answer is 112", "depth": 3}
+{"question": "What is ((19 - 24) - 35)?", "answer": "The answer is -40", "depth": 2}
+{"question": "What is (((38 - 13) + 3) - 4)?", "answer": "The answer is 24", "depth": 3}
+{"question": "What is (((7 - 24) - 43) + 7)?", "answer": "The answer is -53", "depth": 3}
+{"question": "What is (((40 + 15) - 9) + 49)?", "answer": "The answer is 95", "depth": 3}
+{"question": "What is ((34 + 41) - 22)?", "answer": "The answer is 53", "depth": 2}
+{"question": "What is ((39 - 49) - 22)?", "answer": "The answer is -32", "depth": 2}
+{"question": "What is (((31 + 16) + 47) + 45)?", "answer": "The answer is 139", "depth": 3}
+{"question": "What is (((46 + 24) + 9) + 42)?", "answer": "The answer is 121", "depth": 3}
+{"question": "What is (44 - 48)?", "answer": "The answer is -4", "depth": 1}
+{"question": "What is (50 + 33)?", "answer": "The answer is 83", "depth": 1}
+{"question": "What is (((12 - 33) + 31) + 18)?", "answer": "The answer is 28", "depth": 3}
+{"question": "What is ((44 - 15) + 28)?", "answer": "The answer is 57", "depth": 2}
+{"question": "What is (((31 - 21) + 41) - 27)?", "answer": "The answer is 24", "depth": 3}
+{"question": "What is (((6 - 29) - 1) + 3)?", "answer": "The answer is -21", "depth": 3}
+{"question": "What is (((23 - 21) + 45) - 47)?", "answer": "The answer is 0", "depth": 3}
+{"question": "What is (((45 - 43) + 3) + 9)?", "answer": "The answer is 14", "depth": 3}
+{"question": "What is (((29 + 44) - 28) + 23)?", "answer": "The answer is 68", "depth": 3}
+{"question": "What is (((9 - 23) - 44) + 23)?", "answer": "The answer is -35", "depth": 3}
+{"question": "What is (4 + 36)?", "answer": "The answer is 40", "depth": 1}
+{"question": "What is (34 + 39)?", "answer": "The answer is 73", "depth": 1}
+{"question": "What is ((33 - 26) - 5)?", "answer": "The answer is 2", "depth": 2}
+{"question": "What is (12 - 15)?", "answer": "The answer is -3", "depth": 1}
+{"question": "What is ((45 - 48) - 8)?", "answer": "The answer is -11", "depth": 2}
+{"question": "What is ((5 - 33) - 7)?", "answer": "The answer is -35", "depth": 2}
+{"question": "What is (17 + 45)?", "answer": "The answer is 62", "depth": 1}
+{"question": "What is (24 + 13)?", "answer": "The answer is 37", "depth": 1}
+{"question": "What is (5 - 42)?", "answer": "The answer is -37", "depth": 1}
+{"question": "What is (((29 - 29) + 27) + 7)?", "answer": "The answer is 34", "depth": 3}
+{"question": "What is ((33 - 25) - 24)?", "answer": "The answer is -16", "depth": 2}
+{"question": "What is ((5 - 39) + 8)?", "answer": "The answer is -26", "depth": 2}
+{"question": "What is (29 - 33)?", "answer": "The answer is -4", "depth": 1}
+{"question": "What is ((3 + 19) - 45)?", "answer": "The answer is -23", "depth": 2}
+{"question": "What is ((10 - 39) - 24)?", "answer": "The answer is -53", "depth": 2}
+{"question": "What is (35 + 40)?", "answer": "The answer is 75", "depth": 1}
+{"question": "What is ((10 + 22) + 45)?", "answer": "The answer is 77", "depth": 2}
+{"question": "What is ((36 + 20) + 13)?", "answer": "The answer is 69", "depth": 2}
+{"question": "What is ((31 - 31) - 30)?", "answer": "The answer is -30", "depth": 2}
+{"question": "What is ((28 - 6) - 30)?", "answer": "The answer is -8", "depth": 2}
+{"question": "What is (40 - 25)?", "answer": "The answer is 15", "depth": 1}
+{"question": "What is (((37 + 15) + 11) - 33)?", "answer": "The answer is 30", "depth": 3}
+{"question": "What is ((44 - 39) + 50)?", "answer": "The answer is 55", "depth": 2}
+{"question": "What is ((12 + 45) - 48)?", "answer": "The answer is 9", "depth": 2}
+{"question": "What is (38 - 36)?", "answer": "The answer is 2", "depth": 1}
+{"question": "What is (24 - 45)?", "answer": "The answer is -21", "depth": 1}
+{"question": "What is (((9 + 23) + 9) - 27)?", "answer": "The answer is 14", "depth": 3}
+{"question": "What is (11 - 18)?", "answer": "The answer is -7", "depth": 1}
+{"question": "What is (((15 + 19) + 38) + 49)?", "answer": "The answer is 121", "depth": 3}
+{"question": "What is ((50 + 40) - 2)?", "answer": "The answer is 88", "depth": 2}
+{"question": "What is (11 - 40)?", "answer": "The answer is -29", "depth": 1}
+{"question": "What is (((11 - 3) + 16) + 23)?", "answer": "The answer is 47", "depth": 3}
+{"question": "What is (6 + 30)?", "answer": "The answer is 36", "depth": 1}
+{"question": "What is ((12 + 36) + 39)?", "answer": "The answer is 87", "depth": 2}
+{"question": "What is (((16 + 27) + 16) - 11)?", "answer": "The answer is 48", "depth": 3}
+{"question": "What is ((49 + 38) - 48)?", "answer": "The answer is 39", "depth": 2}
+{"question": "What is ((2 - 20) - 28)?", "answer": "The answer is -46", "depth": 2}
+{"question": "What is (((39 + 37) + 13) + 20)?", "answer": "The answer is 109", "depth": 3}
+{"question": "What is (((44 - 33) + 44) + 11)?", "answer": "The answer is 66", "depth": 3}
+{"question": "What is (((11 + 32) + 7) - 41)?", "answer": "The answer is 9", "depth": 3}
+{"question": "What is (45 + 32)?", "answer": "The answer is 77", "depth": 1}
+{"question": "What is (((50 - 15) + 40) - 46)?", "answer": "The answer is 29", "depth": 3}
+{"question": "What is (18 - 36)?", "answer": "The answer is -18", "depth": 1}
+{"question": "What is ((18 + 10) + 13)?", "answer": "The answer is 41", "depth": 2}
+{"question": "What is (43 + 27)?", "answer": "The answer is 70", "depth": 1}
+{"question": "What is (((20 - 5) + 30) - 33)?", "answer": "The answer is 12", "depth": 3}
+{"question": "What is (28 - 7)?", "answer": "The answer is 21", "depth": 1}
+{"question": "What is ((41 + 10) - 22)?", "answer": "The answer is 29", "depth": 2}
+{"question": "What is (29 - 20)?", "answer": "The answer is 9", "depth": 1}
+{"question": "What is (45 - 31)?", "answer": "The answer is 14", "depth": 1}
+{"question": "What is ((24 + 15) - 45)?", "answer": "The answer is -6", "depth": 2}
+{"question": "What is ((18 + 7) + 42)?", "answer": "The answer is 67", "depth": 2}
+{"question": "What is (((23 - 29) - 25) + 12)?", "answer": "The answer is -19", "depth": 3}
+{"question": "What is (12 - 14)?", "answer": "The answer is -2", "depth": 1}
+{"question": "What is (((29 + 50) + 48) - 24)?", "answer": "The answer is 103", "depth": 3}
+{"question": "What is ((11 - 37) - 50)?", "answer": "The answer is -76", "depth": 2}
+{"question": "What is ((35 - 44) + 46)?", "answer": "The answer is 37", "depth": 2}
+{"question": "What is (31 + 44)?", "answer": "The answer is 75", "depth": 1}
+{"question": "What is (((15 + 39) - 29) - 46)?", "answer": "The answer is -21", "depth": 3}
+{"question": "What is (42 - 22)?", "answer": "The answer is 20", "depth": 1}
+{"question": "What is ((43 + 16) + 17)?", "answer": "The answer is 76", "depth": 2}
+{"question": "What is (18 + 32)?", "answer": "The answer is 50", "depth": 1}
+{"question": "What is (43 + 16)?", "answer": "The answer is 59", "depth": 1}
+{"question": "What is (((9 + 42) - 26) - 4)?", "answer": "The answer is 21", "depth": 3}
+{"question": "What is ((37 - 17) - 9)?", "answer": "The answer is 11", "depth": 2}
+{"question": "What is (15 - 42)?", "answer": "The answer is -27", "depth": 1}
+{"question": "What is ((6 - 11) - 18)?", "answer": "The answer is -23", "depth": 2}
+{"question": "What is ((35 - 40) + 4)?", "answer": "The answer is -1", "depth": 2}
+{"question": "What is (10 - 50)?", "answer": "The answer is -40", "depth": 1}
+{"question": "What is ((15 + 34) - 3)?", "answer": "The answer is 46", "depth": 2}
+{"question": "What is (((40 - 9) + 15) + 45)?", "answer": "The answer is 91", "depth": 3}
+{"question": "What is (5 - 35)?", "answer": "The answer is -30", "depth": 1}
+{"question": "What is (((32 - 41) + 21) - 41)?", "answer": "The answer is -29", "depth": 3}
+{"question": "What is (((13 + 13) + 43) + 41)?", "answer": "The answer is 110", "depth": 3}
+{"question": "What is ((18 - 19) + 35)?", "answer": "The answer is 34", "depth": 2}
+{"question": "What is ((21 + 16) + 5)?", "answer": "The answer is 42", "depth": 2}
+{"question": "What is ((41 + 24) + 40)?", "answer": "The answer is 105", "depth": 2}
+{"question": "What is ((4 + 24) + 42)?", "answer": "The answer is 70", "depth": 2}
+{"question": "What is (((26 - 42) + 11) + 50)?", "answer": "The answer is 45", "depth": 3}
+{"question": "What is ((42 - 16) - 38)?", "answer": "The answer is -12", "depth": 2}
+{"question": "What is (((20 + 38) - 19) - 38)?", "answer": "The answer is 1", "depth": 3}
+{"question": "What is (((50 - 41) - 24) - 11)?", "answer": "The answer is -26", "depth": 3}
+{"question": "What is ((32 + 42) + 10)?", "answer": "The answer is 84", "depth": 2}
+{"question": "What is (((28 + 43) - 26) - 42)?", "answer": "The answer is 3", "depth": 3}
+{"question": "What is (14 - 2)?", "answer": "The answer is 12", "depth": 1}
+{"question": "What is (42 + 11)?", "answer": "The answer is 53", "depth": 1}
+{"question": "What is (((9 - 16) - 9) - 25)?", "answer": "The answer is -41", "depth": 3}
+{"question": "What is (((13 + 5) + 43) + 16)?", "answer": "The answer is 77", "depth": 3}
+{"question": "What is (32 - 22)?", "answer": "The answer is 10", "depth": 1}
+{"question": "What is (44 - 26)?", "answer": "The answer is 18", "depth": 1}
+{"question": "What is (((5 - 42) - 45) + 37)?", "answer": "The answer is -45", "depth": 3}
+{"question": "What is ((12 - 15) - 35)?", "answer": "The answer is -38", "depth": 2}
+{"question": "What is (((38 + 12) - 41) - 50)?", "answer": "The answer is -41", "depth": 3}
+{"question": "What is ((46 + 2) - 2)?", "answer": "The answer is 46", "depth": 2}
+{"question": "What is (((45 + 26) + 11) + 9)?", "answer": "The answer is 91", "depth": 3}
+{"question": "What is ((42 + 17) + 13)?", "answer": "The answer is 72", "depth": 2}
+{"question": "What is (29 + 3)?", "answer": "The answer is 32", "depth": 1}
+{"question": "What is (33 + 31)?", "answer": "The answer is 64", "depth": 1}
+{"question": "What is ((36 + 45) + 48)?", "answer": "The answer is 129", "depth": 2}
+{"question": "What is ((48 - 38) + 8)?", "answer": "The answer is 18", "depth": 2}
+{"question": "What is ((7 - 5) - 43)?", "answer": "The answer is -41", "depth": 2}
+{"question": "What is (10 - 38)?", "answer": "The answer is -28", "depth": 1}
+{"question": "What is (((15 + 16) + 16) + 6)?", "answer": "The answer is 53", "depth": 3}
+{"question": "What is ((50 - 7) + 16)?", "answer": "The answer is 59", "depth": 2}
+{"question": "What is (44 - 24)?", "answer": "The answer is 20", "depth": 1}
+{"question": "What is ((8 + 33) - 1)?", "answer": "The answer is 40", "depth": 2}
+{"question": "What is (45 - 6)?", "answer": "The answer is 39", "depth": 1}
+{"question": "What is (((45 - 16) - 22) - 40)?", "answer": "The answer is -33", "depth": 3}
+{"question": "What is (36 - 32)?", "answer": "The answer is 4", "depth": 1}
+{"question": "What is (5 + 7)?", "answer": "The answer is 12", "depth": 1}
+{"question": "What is (31 - 13)?", "answer": "The answer is 18", "depth": 1}
+{"question": "What is (((45 + 36) + 23) + 9)?", "answer": "The answer is 113", "depth": 3}
+{"question": "What is (((37 + 40) - 17) + 29)?", "answer": "The answer is 89", "depth": 3}
+{"question": "What is (6 - 33)?", "answer": "The answer is -27", "depth": 1}
+{"question": "What is (17 - 43)?", "answer": "The answer is -26", "depth": 1}
+{"question": "What is (((43 - 22) + 9) - 43)?", "answer": "The answer is -13", "depth": 3}
+{"question": "What is (40 - 35)?", "answer": "The answer is 5", "depth": 1}
+{"question": "What is (((36 - 32) - 11) + 50)?", "answer": "The answer is 43", "depth": 3}
+{"question": "What is (42 - 21)?", "answer": "The answer is 21", "depth": 1}
+{"question": "What is (6 - 16)?", "answer": "The answer is -10", "depth": 1}
+{"question": "What is ((26 + 45) - 20)?", "answer": "The answer is 51", "depth": 2}
+{"question": "What is ((35 - 43) + 47)?", "answer": "The answer is 39", "depth": 2}
+{"question": "What is (((7 - 44) + 9) - 28)?", "answer": "The answer is -56", "depth": 3}
+{"question": "What is (43 - 47)?", "answer": "The answer is -4", "depth": 1}
+{"question": "What is (18 + 16)?", "answer": "The answer is 34", "depth": 1}
+{"question": "What is (7 - 22)?", "answer": "The answer is -15", "depth": 1}
+{"question": "What is (21 - 19)?", "answer": "The answer is 2", "depth": 1}
+{"question": "What is (16 + 34)?", "answer": "The answer is 50", "depth": 1}
+{"question": "What is ((24 - 50) + 17)?", "answer": "The answer is -9", "depth": 2}
+{"question": "What is (19 - 43)?", "answer": "The answer is -24", "depth": 1}
+{"question": "What is (((14 - 5) + 14) + 33)?", "answer": "The answer is 56", "depth": 3}
+{"question": "What is (((20 + 21) + 19) + 26)?", "answer": "The answer is 86", "depth": 3}
+{"question": "What is ((16 - 47) - 49)?", "answer": "The answer is -80", "depth": 2}
+{"question": "What is (1 - 33)?", "answer": "The answer is -32", "depth": 1}
+{"question": "What is (((1 + 29) - 11) - 20)?", "answer": "The answer is -1", "depth": 3}
+{"question": "What is ((50 + 47) + 29)?", "answer": "The answer is 126", "depth": 2}
+{"question": "What is (1 + 24)?", "answer": "The answer is 25", "depth": 1}
+{"question": "What is ((10 - 48) + 13)?", "answer": "The answer is -25", "depth": 2}
+{"question": "What is ((11 + 36) + 8)?", "answer": "The answer is 55", "depth": 2}
+{"question": "What is (12 + 4)?", "answer": "The answer is 16", "depth": 1}
+{"question": "What is (16 - 31)?", "answer": "The answer is -15", "depth": 1}
+{"question": "What is (((50 - 12) - 32) + 2)?", "answer": "The answer is 8", "depth": 3}
+{"question": "What is (((39 - 14) - 39) - 48)?", "answer": "The answer is -62", "depth": 3}
+{"question": "What is (((37 + 35) + 12) + 19)?", "answer": "The answer is 103", "depth": 3}
+{"question": "What is (32 + 26)?", "answer": "The answer is 58", "depth": 1}
+{"question": "What is (21 - 35)?", "answer": "The answer is -14", "depth": 1}
+{"question": "What is ((47 - 10) + 50)?", "answer": "The answer is 87", "depth": 2}
+{"question": "What is (38 - 45)?", "answer": "The answer is -7", "depth": 1}
+{"question": "What is ((5 + 24) + 14)?", "answer": "The answer is 43", "depth": 2}
+{"question": "What is ((32 - 3) - 30)?", "answer": "The answer is -1", "depth": 2}
+{"question": "What is (14 - 8)?", "answer": "The answer is 6", "depth": 1}
+{"question": "What is (((36 - 23) + 42) + 13)?", "answer": "The answer is 68", "depth": 3}
+{"question": "What is (15 + 12)?", "answer": "The answer is 27", "depth": 1}
+{"question": "What is ((27 - 49) + 38)?", "answer": "The answer is 16", "depth": 2}
+{"question": "What is (1 - 36)?", "answer": "The answer is -35", "depth": 1}
+{"question": "What is ((28 + 1) - 43)?", "answer": "The answer is -14", "depth": 2}
+{"question": "What is ((27 - 37) - 30)?", "answer": "The answer is -40", "depth": 2}
+{"question": "What is ((25 + 48) + 6)?", "answer": "The answer is 79", "depth": 2}
+{"question": "What is ((44 + 24) + 47)?", "answer": "The answer is 115", "depth": 2}
+{"question": "What is (45 + 27)?", "answer": "The answer is 72", "depth": 1}
+{"question": "What is (39 + 15)?", "answer": "The answer is 54", "depth": 1}
+{"question": "What is ((43 - 38) - 37)?", "answer": "The answer is -32", "depth": 2}
+{"question": "What is (20 + 34)?", "answer": "The answer is 54", "depth": 1}
+{"question": "What is ((36 + 20) - 19)?", "answer": "The answer is 37", "depth": 2}
+{"question": "What is ((2 + 35) + 23)?", "answer": "The answer is 60", "depth": 2}
+{"question": "What is (((6 - 5) + 3) - 34)?", "answer": "The answer is -30", "depth": 3}
+{"question": "What is (9 - 17)?", "answer": "The answer is -8", "depth": 1}
+{"question": "What is ((35 - 18) + 36)?", "answer": "The answer is 53", "depth": 2}
+{"question": "What is (14 - 27)?", "answer": "The answer is -13", "depth": 1}
+{"question": "What is (2 + 18)?", "answer": "The answer is 20", "depth": 1}
+{"question": "What is ((40 - 4) - 19)?", "answer": "The answer is 17", "depth": 2}
+{"question": "What is (((46 + 13) - 9) - 45)?", "answer": "The answer is 5", "depth": 3}
+{"question": "What is ((24 - 36) - 39)?", "answer": "The answer is -51", "depth": 2}
+{"question": "What is (((3 + 41) + 21) - 13)?", "answer": "The answer is 52", "depth": 3}
+{"question": "What is (((45 - 43) + 31) - 46)?", "answer": "The answer is -13", "depth": 3}
+{"question": "What is (((49 + 21) - 49) - 48)?", "answer": "The answer is -27", "depth": 3}
+{"question": "What is ((45 - 49) - 32)?", "answer": "The answer is -36", "depth": 2}
+{"question": "What is (38 + 25)?", "answer": "The answer is 63", "depth": 1}
+{"question": "What is (((9 - 32) + 18) - 8)?", "answer": "The answer is -13", "depth": 3}
+{"question": "What is (12 - 23)?", "answer": "The answer is -11", "depth": 1}
+{"question": "What is (44 - 46)?", "answer": "The answer is -2", "depth": 1}
+{"question": "What is (41 + 23)?", "answer": "The answer is 64", "depth": 1}
+{"question": "What is (28 + 43)?", "answer": "The answer is 71", "depth": 1}
+{"question": "What is (((28 + 46) - 45) + 33)?", "answer": "The answer is 62", "depth": 3}
+{"question": "What is (4 + 34)?", "answer": "The answer is 38", "depth": 1}
+{"question": "What is (12 + 42)?", "answer": "The answer is 54", "depth": 1}
+{"question": "What is (((1 + 50) + 16) - 3)?", "answer": "The answer is 64", "depth": 3}
+{"question": "What is (((47 + 31) - 23) + 21)?", "answer": "The answer is 76", "depth": 3}
+{"question": "What is (9 - 16)?", "answer": "The answer is -7", "depth": 1}
+{"question": "What is (((8 - 40) + 50) + 2)?", "answer": "The answer is 20", "depth": 3}
+{"question": "What is (((47 + 23) + 44) - 34)?", "answer": "The answer is 80", "depth": 3}
+{"question": "What is ((30 + 4) + 5)?", "answer": "The answer is 39", "depth": 2}
+{"question": "What is (((11 + 25) + 14) + 19)?", "answer": "The answer is 69", "depth": 3}
+{"question": "What is (((4 - 30) - 31) - 6)?", "answer": "The answer is -63", "depth": 3}
+{"question": "What is (27 - 48)?", "answer": "The answer is -21", "depth": 1}
+{"question": "What is (8 - 23)?", "answer": "The answer is -15", "depth": 1}
+{"question": "What is (((13 - 21) - 9) - 7)?", "answer": "The answer is -24", "depth": 3}
+{"question": "What is (((4 - 48) + 30) - 35)?", "answer": "The answer is -49", "depth": 3}
+{"question": "What is ((21 - 37) + 36)?", "answer": "The answer is 20", "depth": 2}
+{"question": "What is ((2 + 27) - 48)?", "answer": "The answer is -19", "depth": 2}
+{"question": "What is (((25 - 34) - 20) - 33)?", "answer": "The answer is -62", "depth": 3}
+{"question": "What is ((15 - 22) - 6)?", "answer": "The answer is -13", "depth": 2}
+{"question": "What is ((21 + 13) + 14)?", "answer": "The answer is 48", "depth": 2}
+{"question": "What is (((36 - 37) - 47) + 31)?", "answer": "The answer is -17", "depth": 3}
+{"question": "What is (29 - 4)?", "answer": "The answer is 25", "depth": 1}
+{"question": "What is (29 + 20)?", "answer": "The answer is 49", "depth": 1}
+{"question": "What is (26 + 21)?", "answer": "The answer is 47", "depth": 1}
+{"question": "What is (18 + 43)?", "answer": "The answer is 61", "depth": 1}
+{"question": "What is (48 + 37)?", "answer": "The answer is 85", "depth": 1}
+{"question": "What is (24 - 34)?", "answer": "The answer is -10", "depth": 1}
+{"question": "What is (40 - 32)?", "answer": "The answer is 8", "depth": 1}
+{"question": "What is ((14 + 19) - 9)?", "answer": "The answer is 24", "depth": 2}
+{"question": "What is ((18 + 7) + 15)?", "answer": "The answer is 40", "depth": 2}
+{"question": "What is (((30 + 50) + 9) - 42)?", "answer": "The answer is 47", "depth": 3}
+{"question": "What is (((40 + 21) - 8) - 4)?", "answer": "The answer is 49", "depth": 3}
+{"question": "What is (44 + 12)?", "answer": "The answer is 56", "depth": 1}
+{"question": "What is ((43 - 47) - 23)?", "answer": "The answer is -27", "depth": 2}
+{"question": "What is (((22 - 40) - 18) + 2)?", "answer": "The answer is -34", "depth": 3}
+{"question": "What is ((19 + 13) - 27)?", "answer": "The answer is 5", "depth": 2}
+{"question": "What is (22 - 25)?", "answer": "The answer is -3", "depth": 1}
+{"question": "What is (50 + 11)?", "answer": "The answer is 61", "depth": 1}
+{"question": "What is (((22 - 13) - 29) - 36)?", "answer": "The answer is -56", "depth": 3}
+{"question": "What is (((41 - 17) - 49) + 4)?", "answer": "The answer is -21", "depth": 3}
+{"question": "What is (((50 - 44) + 12) - 3)?", "answer": "The answer is 15", "depth": 3}
+{"question": "What is (42 + 5)?", "answer": "The answer is 47", "depth": 1}
+{"question": "What is (14 + 46)?", "answer": "The answer is 60", "depth": 1}
+{"question": "What is ((11 + 48) + 35)?", "answer": "The answer is 94", "depth": 2}
+{"question": "What is (((3 + 39) + 11) + 26)?", "answer": "The answer is 79", "depth": 3}
+{"question": "What is (((38 + 40) + 32) + 3)?", "answer": "The answer is 113", "depth": 3}
+{"question": "What is (31 - 16)?", "answer": "The answer is 15", "depth": 1}
+{"question": "What is (((45 + 43) - 27) - 22)?", "answer": "The answer is 39", "depth": 3}
+{"question": "What is (((3 + 45) + 41) - 37)?", "answer": "The answer is 52", "depth": 3}
+{"question": "What is (((43 - 18) + 31) - 44)?", "answer": "The answer is 12", "depth": 3}
+{"question": "What is ((47 + 21) - 16)?", "answer": "The answer is 52", "depth": 2}
+{"question": "What is ((17 - 9) + 27)?", "answer": "The answer is 35", "depth": 2}
+{"question": "What is (((2 + 29) + 31) - 41)?", "answer": "The answer is 21", "depth": 3}
+{"question": "What is (((11 - 41) - 38) - 46)?", "answer": "The answer is -114", "depth": 3}
+{"question": "What is (((31 - 22) - 46) - 34)?", "answer": "The answer is -71", "depth": 3}
+{"question": "What is ((35 - 34) - 49)?", "answer": "The answer is -48", "depth": 2}
+{"question": "What is (((25 + 49) + 39) + 48)?", "answer": "The answer is 161", "depth": 3}
+{"question": "What is (44 - 7)?", "answer": "The answer is 37", "depth": 1}
+{"question": "What is (((31 - 6) - 21) + 17)?", "answer": "The answer is 21", "depth": 3}
+{"question": "What is (((11 - 23) + 31) - 5)?", "answer": "The answer is 14", "depth": 3}
+{"question": "What is (((49 - 10) - 48) + 3)?", "answer": "The answer is -6", "depth": 3}
+{"question": "What is (((40 - 43) + 34) - 11)?", "answer": "The answer is 20", "depth": 3}
+{"question": "What is (((9 + 17) - 6) - 50)?", "answer": "The answer is -30", "depth": 3}
+{"question": "What is (1 - 40)?", "answer": "The answer is -39", "depth": 1}
+{"question": "What is ((32 + 38) - 39)?", "answer": "The answer is 31", "depth": 2}
+{"question": "What is (42 - 16)?", "answer": "The answer is 26", "depth": 1}
+{"question": "What is ((5 - 39) - 27)?", "answer": "The answer is -61", "depth": 2}
+{"question": "What is (((15 - 43) + 7) - 33)?", "answer": "The answer is -54", "depth": 3}
+{"question": "What is ((18 - 15) - 6)?", "answer": "The answer is -3", "depth": 2}
+{"question": "What is (31 + 20)?", "answer": "The answer is 51", "depth": 1}
+{"question": "What is (4 - 6)?", "answer": "The answer is -2", "depth": 1}
+{"question": "What is ((7 + 31) - 5)?", "answer": "The answer is 33", "depth": 2}
+{"question": "What is (13 - 23)?", "answer": "The answer is -10", "depth": 1}
+{"question": "What is ((5 + 25) - 32)?", "answer": "The answer is -2", "depth": 2}
+{"question": "What is (((48 - 15) - 50) - 28)?", "answer": "The answer is -45", "depth": 3}
+{"question": "What is ((5 - 31) - 15)?", "answer": "The answer is -41", "depth": 2}
+{"question": "What is (46 - 42)?", "answer": "The answer is 4", "depth": 1}
+{"question": "What is (((30 - 20) + 30) - 32)?", "answer": "The answer is 8", "depth": 3}
+{"question": "What is (((8 - 25) + 38) - 3)?", "answer": "The answer is 18", "depth": 3}
+{"question": "What is (2 + 20)?", "answer": "The answer is 22", "depth": 1}
+{"question": "What is (13 + 10)?", "answer": "The answer is 23", "depth": 1}
+{"question": "What is (((33 + 46) + 47) - 41)?", "answer": "The answer is 85", "depth": 3}
+{"question": "What is (30 - 8)?", "answer": "The answer is 22", "depth": 1}
+{"question": "What is (24 - 12)?", "answer": "The answer is 12", "depth": 1}
+{"question": "What is (5 + 47)?", "answer": "The answer is 52", "depth": 1}
+{"question": "What is (48 - 48)?", "answer": "The answer is 0", "depth": 1}
+{"question": "What is (48 + 18)?", "answer": "The answer is 66", "depth": 1}
+{"question": "What is (13 - 5)?", "answer": "The answer is 8", "depth": 1}
+{"question": "What is ((32 + 7) + 43)?", "answer": "The answer is 82", "depth": 2}
+{"question": "What is (((22 - 30) - 13) + 19)?", "answer": "The answer is -2", "depth": 3}
+{"question": "What is (16 + 19)?", "answer": "The answer is 35", "depth": 1}
+{"question": "What is (9 + 28)?", "answer": "The answer is 37", "depth": 1}
+{"question": "What is ((45 - 10) - 19)?", "answer": "The answer is 16", "depth": 2}
+{"question": "What is ((26 - 38) + 50)?", "answer": "The answer is 38", "depth": 2}
+{"question": "What is ((12 - 49) - 25)?", "answer": "The answer is -62", "depth": 2}
+{"question": "What is ((22 + 26) - 43)?", "answer": "The answer is 5", "depth": 2}
+{"question": "What is (((18 - 26) + 16) + 25)?", "answer": "The answer is 33", "depth": 3}
+{"question": "What is (9 + 11)?", "answer": "The answer is 20", "depth": 1}
+{"question": "What is ((22 + 31) - 17)?", "answer": "The answer is 36", "depth": 2}
+{"question": "What is ((18 + 50) - 22)?", "answer": "The answer is 46", "depth": 2}
+{"question": "What is ((38 + 18) + 43)?", "answer": "The answer is 99", "depth": 2}
+{"question": "What is (((15 + 4) + 15) + 47)?", "answer": "The answer is 81", "depth": 3}
+{"question": "What is ((5 - 1) - 47)?", "answer": "The answer is -43", "depth": 2}
+{"question": "What is (((21 + 43) - 35) + 46)?", "answer": "The answer is 75", "depth": 3}
+{"question": "What is ((23 + 21) + 27)?", "answer": "The answer is 71", "depth": 2}
+{"question": "What is ((41 - 24) + 32)?", "answer": "The answer is 49", "depth": 2}
+{"question": "What is (37 - 40)?", "answer": "The answer is -3", "depth": 1}
+{"question": "What is (((10 + 17) + 8) - 31)?", "answer": "The answer is 4", "depth": 3}
+{"question": "What is (((34 - 11) + 37) + 41)?", "answer": "The answer is 101", "depth": 3}
+{"question": "What is (((31 + 38) + 44) + 38)?", "answer": "The answer is 151", "depth": 3}
+{"question": "What is ((30 - 2) + 29)?", "answer": "The answer is 57", "depth": 2}
+{"question": "What is (43 - 9)?", "answer": "The answer is 34", "depth": 1}
+{"question": "What is (((45 - 27) + 27) + 16)?", "answer": "The answer is 61", "depth": 3}
+{"question": "What is ((41 + 1) - 34)?", "answer": "The answer is 8", "depth": 2}
+{"question": "What is (4 - 17)?", "answer": "The answer is -13", "depth": 1}
+{"question": "What is (((1 + 40) + 42) + 43)?", "answer": "The answer is 126", "depth": 3}
+{"question": "What is (((26 + 26) - 40) + 35)?", "answer": "The answer is 47", "depth": 3}
+{"question": "What is ((4 - 46) - 1)?", "answer": "The answer is -43", "depth": 2}
+{"question": "What is (((9 - 1) - 15) - 9)?", "answer": "The answer is -16", "depth": 3}
+{"question": "What is (25 - 14)?", "answer": "The answer is 11", "depth": 1}
+{"question": "What is (((9 + 46) - 47) + 47)?", "answer": "The answer is 55", "depth": 3}
+{"question": "What is (((50 - 46) + 28) + 43)?", "answer": "The answer is 75", "depth": 3}
+{"question": "What is ((49 + 15) - 47)?", "answer": "The answer is 17", "depth": 2}
+{"question": "What is (((36 + 7) - 29) - 50)?", "answer": "The answer is -36", "depth": 3}
+{"question": "What is (38 - 21)?", "answer": "The answer is 17", "depth": 1}
+{"question": "What is (((18 + 39) - 15) + 48)?", "answer": "The answer is 90", "depth": 3}
+{"question": "What is ((7 + 31) + 2)?", "answer": "The answer is 40", "depth": 2}
+{"question": "What is (((50 - 34) - 28) + 12)?", "answer": "The answer is 0", "depth": 3}
+{"question": "What is (((3 + 15) - 47) + 2)?", "answer": "The answer is -27", "depth": 3}
+{"question": "What is (((42 + 14) + 9) - 16)?", "answer": "The answer is 49", "depth": 3}
+{"question": "What is (40 + 46)?", "answer": "The answer is 86", "depth": 1}
+{"question": "What is (((42 - 4) + 14) - 45)?", "answer": "The answer is 7", "depth": 3}
+{"question": "What is (((47 + 39) - 2) + 17)?", "answer": "The answer is 101", "depth": 3}
+{"question": "What is (15 - 27)?", "answer": "The answer is -12", "depth": 1}
+{"question": "What is ((14 + 2) - 45)?", "answer": "The answer is -29", "depth": 2}
+{"question": "What is ((50 - 7) + 17)?", "answer": "The answer is 60", "depth": 2}
+{"question": "What is (((33 + 27) + 15) + 38)?", "answer": "The answer is 113", "depth": 3}
+{"question": "What is (8 + 27)?", "answer": "The answer is 35", "depth": 1}
+{"question": "What is (((46 - 23) + 8) - 30)?", "answer": "The answer is 1", "depth": 3}
+{"question": "What is (14 - 21)?", "answer": "The answer is -7", "depth": 1}
+{"question": "What is (9 + 37)?", "answer": "The answer is 46", "depth": 1}
+{"question": "What is (((50 - 29) + 28) + 6)?", "answer": "The answer is 55", "depth": 3}
+{"question": "What is ((9 + 35) - 31)?", "answer": "The answer is 13", "depth": 2}
+{"question": "What is (30 + 29)?", "answer": "The answer is 59", "depth": 1}
+{"question": "What is (15 + 26)?", "answer": "The answer is 41", "depth": 1}
+{"question": "What is (36 - 5)?", "answer": "The answer is 31", "depth": 1}
+{"question": "What is (33 + 10)?", "answer": "The answer is 43", "depth": 1}
+{"question": "What is (((38 - 9) - 14) + 15)?", "answer": "The answer is 30", "depth": 3}
+{"question": "What is ((43 + 27) - 38)?", "answer": "The answer is 32", "depth": 2}
+{"question": "What is (((47 + 2) + 7) + 14)?", "answer": "The answer is 70", "depth": 3}
+{"question": "What is (6 + 4)?", "answer": "The answer is 10", "depth": 1}
+{"question": "What is ((41 + 33) + 27)?", "answer": "The answer is 101", "depth": 2}
+{"question": "What is (40 - 13)?", "answer": "The answer is 27", "depth": 1}
+{"question": "What is (((27 + 4) + 5) - 23)?", "answer": "The answer is 13", "depth": 3}
+{"question": "What is (((32 + 11) + 25) + 35)?", "answer": "The answer is 103", "depth": 3}
+{"question": "What is ((13 + 29) - 23)?", "answer": "The answer is 19", "depth": 2}
+{"question": "What is ((48 + 7) + 25)?", "answer": "The answer is 80", "depth": 2}
+{"question": "What is ((20 + 26) - 4)?", "answer": "The answer is 42", "depth": 2}
+{"question": "What is (((14 - 41) - 20) - 42)?", "answer": "The answer is -89", "depth": 3}
+{"question": "What is (((31 + 44) + 3) + 42)?", "answer": "The answer is 120", "depth": 3}
+{"question": "What is (46 - 34)?", "answer": "The answer is 12", "depth": 1}
+{"question": "What is ((6 + 34) + 10)?", "answer": "The answer is 50", "depth": 2}
+{"question": "What is ((23 + 19) + 31)?", "answer": "The answer is 73", "depth": 2}
+{"question": "What is (((15 - 29) + 44) - 31)?", "answer": "The answer is -1", "depth": 3}
+{"question": "What is ((14 + 10) - 7)?", "answer": "The answer is 17", "depth": 2}
+{"question": "What is (((37 + 49) - 23) + 34)?", "answer": "The answer is 97", "depth": 3}
+{"question": "What is (((27 - 27) + 39) - 33)?", "answer": "The answer is 6", "depth": 3}
+{"question": "What is ((12 + 31) - 33)?", "answer": "The answer is 10", "depth": 2}
+{"question": "What is (((6 + 20) - 25) - 25)?", "answer": "The answer is -24", "depth": 3}
+{"question": "What is (((21 - 21) - 11) + 41)?", "answer": "The answer is 30", "depth": 3}
+{"question": "What is (2 + 4)?", "answer": "The answer is 6", "depth": 1}
+{"question": "What is ((13 + 50) - 31)?", "answer": "The answer is 32", "depth": 2}
+{"question": "What is ((27 - 18) - 48)?", "answer": "The answer is -39", "depth": 2}
+{"question": "What is (((35 - 1) + 10) + 9)?", "answer": "The answer is 53", "depth": 3}
+{"question": "What is (((29 + 3) + 20) - 42)?", "answer": "The answer is 10", "depth": 3}
+{"question": "What is ((6 + 46) + 36)?", "answer": "The answer is 88", "depth": 2}
+{"question": "What is (((39 - 29) + 35) - 27)?", "answer": "The answer is 18", "depth": 3}
+{"question": "What is ((33 + 3) - 46)?", "answer": "The answer is -10", "depth": 2}
+{"question": "What is (32 + 33)?", "answer": "The answer is 65", "depth": 1}
+{"question": "What is (((24 + 18) + 27) + 6)?", "answer": "The answer is 75", "depth": 3}
+{"question": "What is ((22 + 9) - 50)?", "answer": "The answer is -19", "depth": 2}
+{"question": "What is ((43 - 1) - 30)?", "answer": "The answer is 12", "depth": 2}
+{"question": "What is ((32 + 1) + 43)?", "answer": "The answer is 76", "depth": 2}
+{"question": "What is (((7 + 15) - 6) - 26)?", "answer": "The answer is -10", "depth": 3}
+{"question": "What is (14 - 7)?", "answer": "The answer is 7", "depth": 1}
+{"question": "What is (29 - 8)?", "answer": "The answer is 21", "depth": 1}
+{"question": "What is ((13 - 42) + 11)?", "answer": "The answer is -18", "depth": 2}
+{"question": "What is (((11 + 39) + 25) + 50)?", "answer": "The answer is 125", "depth": 3}
+{"question": "What is (((45 + 6) - 3) + 9)?", "answer": "The answer is 57", "depth": 3}
+{"question": "What is (((19 + 15) - 35) - 35)?", "answer": "The answer is -36", "depth": 3}
+{"question": "What is ((1 + 33) - 15)?", "answer": "The answer is 19", "depth": 2}
+{"question": "What is (((14 - 27) + 30) - 44)?", "answer": "The answer is -27", "depth": 3}
+{"question": "What is (((5 + 38) - 17) - 45)?", "answer": "The answer is -19", "depth": 3}
+{"question": "What is (((2 + 8) - 28) + 12)?", "answer": "The answer is -6", "depth": 3}
+{"question": "What is (((25 + 40) + 2) + 32)?", "answer": "The answer is 99", "depth": 3}
+{"question": "What is (18 - 2)?", "answer": "The answer is 16", "depth": 1}
+{"question": "What is ((2 - 29) - 25)?", "answer": "The answer is -52", "depth": 2}
+{"question": "What is (28 + 46)?", "answer": "The answer is 74", "depth": 1}
+{"question": "What is (28 - 10)?", "answer": "The answer is 18", "depth": 1}
+{"question": "What is (((21 - 47) + 21) - 20)?", "answer": "The answer is -25", "depth": 3}
+{"question": "What is (26 - 9)?", "answer": "The answer is 17", "depth": 1}
+{"question": "What is (5 + 27)?", "answer": "The answer is 32", "depth": 1}
+{"question": "What is (((15 + 35) + 26) + 27)?", "answer": "The answer is 103", "depth": 3}
+{"question": "What is (35 - 4)?", "answer": "The answer is 31", "depth": 1}
+{"question": "What is ((8 + 48) + 8)?", "answer": "The answer is 64", "depth": 2}
+{"question": "What is ((1 + 16) - 26)?", "answer": "The answer is -9", "depth": 2}
+{"question": "What is (((17 - 30) + 34) - 45)?", "answer": "The answer is -24", "depth": 3}
+{"question": "What is ((27 - 30) - 1)?", "answer": "The answer is -4", "depth": 2}
+{"question": "What is (25 + 43)?", "answer": "The answer is 68", "depth": 1}
+{"question": "What is (18 - 7)?", "answer": "The answer is 11", "depth": 1}
+{"question": "What is (((17 - 38) + 3) + 8)?", "answer": "The answer is -10", "depth": 3}
+{"question": "What is (((15 + 49) - 23) + 16)?", "answer": "The answer is 57", "depth": 3}
+{"question": "What is ((17 + 32) + 27)?", "answer": "The answer is 76", "depth": 2}
+{"question": "What is (((7 - 11) + 12) + 16)?", "answer": "The answer is 24", "depth": 3}
+{"question": "What is (((42 + 27) - 39) - 43)?", "answer": "The answer is -13", "depth": 3}
+{"question": "What is (13 - 36)?", "answer": "The answer is -23", "depth": 1}
+{"question": "What is ((32 + 24) - 49)?", "answer": "The answer is 7", "depth": 2}
+{"question": "What is (((11 - 30) - 10) + 38)?", "answer": "The answer is 9", "depth": 3}
+{"question": "What is (31 - 30)?", "answer": "The answer is 1", "depth": 1}
+{"question": "What is ((19 - 30) + 3)?", "answer": "The answer is -8", "depth": 2}
+{"question": "What is (35 + 13)?", "answer": "The answer is 48", "depth": 1}
+{"question": "What is ((12 - 27) - 10)?", "answer": "The answer is -25", "depth": 2}
+{"question": "What is (((1 - 46) - 34) - 47)?", "answer": "The answer is -126", "depth": 3}
+{"question": "What is (4 - 27)?", "answer": "The answer is -23", "depth": 1}
+{"question": "What is ((48 - 18) - 7)?", "answer": "The answer is 23", "depth": 2}
+{"question": "What is (44 - 44)?", "answer": "The answer is 0", "depth": 1}
+{"question": "What is (9 + 24)?", "answer": "The answer is 33", "depth": 1}
+{"question": "What is (((18 - 12) + 3) - 27)?", "answer": "The answer is -18", "depth": 3}
+{"question": "What is ((6 + 50) + 39)?", "answer": "The answer is 95", "depth": 2}
+{"question": "What is (24 - 10)?", "answer": "The answer is 14", "depth": 1}
+{"question": "What is (6 + 9)?", "answer": "The answer is 15", "depth": 1}
+{"question": "What is (25 + 43)?", "answer": "The answer is 68", "depth": 1}
+{"question": "What is ((45 + 46) - 6)?", "answer": "The answer is 85", "depth": 2}
+{"question": "What is (((50 - 49) - 4) - 3)?", "answer": "The answer is -6", "depth": 3}
+{"question": "What is (((32 + 49) - 17) - 47)?", "answer": "The answer is 17", "depth": 3}
+{"question": "What is (((49 + 31) - 5) + 30)?", "answer": "The answer is 105", "depth": 3}
+{"question": "What is (39 - 23)?", "answer": "The answer is 16", "depth": 1}
+{"question": "What is (21 - 18)?", "answer": "The answer is 3", "depth": 1}
+{"question": "What is (((43 - 12) - 27) + 30)?", "answer": "The answer is 34", "depth": 3}
+{"question": "What is ((7 - 22) + 12)?", "answer": "The answer is -3", "depth": 2}
+{"question": "What is ((3 - 27) + 44)?", "answer": "The answer is 20", "depth": 2}
+{"question": "What is (((38 - 50) + 10) + 12)?", "answer": "The answer is 10", "depth": 3}
+{"question": "What is (((5 + 47) - 48) + 27)?", "answer": "The answer is 31", "depth": 3}
+{"question": "What is (8 + 28)?", "answer": "The answer is 36", "depth": 1}
+{"question": "What is (39 + 22)?", "answer": "The answer is 61", "depth": 1}
+{"question": "What is (((8 - 30) + 26) + 27)?", "answer": "The answer is 31", "depth": 3}
+{"question": "What is ((39 - 19) - 48)?", "answer": "The answer is -28", "depth": 2}
+{"question": "What is ((13 - 23) + 35)?", "answer": "The answer is 25", "depth": 2}
+{"question": "What is (35 + 20)?", "answer": "The answer is 55", "depth": 1}
+{"question": "What is (2 + 15)?", "answer": "The answer is 17", "depth": 1}
+{"question": "What is ((37 - 40) - 3)?", "answer": "The answer is -6", "depth": 2}
+{"question": "What is (((42 - 45) - 28) + 33)?", "answer": "The answer is 2", "depth": 3}
+{"question": "What is ((46 - 14) - 5)?", "answer": "The answer is 27", "depth": 2}
+{"question": "What is (((1 - 32) - 4) + 39)?", "answer": "The answer is 4", "depth": 3}
+{"question": "What is (13 - 1)?", "answer": "The answer is 12", "depth": 1}
+{"question": "What is (22 - 24)?", "answer": "The answer is -2", "depth": 1}
+{"question": "What is ((36 - 15) - 50)?", "answer": "The answer is -29", "depth": 2}
+{"question": "What is (25 - 44)?", "answer": "The answer is -19", "depth": 1}
+{"question": "What is (((6 + 10) - 48) - 48)?", "answer": "The answer is -80", "depth": 3}
+{"question": "What is (39 - 49)?", "answer": "The answer is -10", "depth": 1}
+{"question": "What is (((38 - 18) + 12) - 25)?", "answer": "The answer is 7", "depth": 3}
+{"question": "What is (((34 + 31) + 48) - 40)?", "answer": "The answer is 73", "depth": 3}
+{"question": "What is (((31 - 1) - 4) + 32)?", "answer": "The answer is 58", "depth": 3}
+{"question": "What is ((5 + 2) - 8)?", "answer": "The answer is -1", "depth": 2}
+{"question": "What is (27 + 4)?", "answer": "The answer is 31", "depth": 1}
+{"question": "What is (14 - 43)?", "answer": "The answer is -29", "depth": 1}
+{"question": "What is (34 + 31)?", "answer": "The answer is 65", "depth": 1}
+{"question": "What is (((37 - 14) - 30) - 8)?", "answer": "The answer is -15", "depth": 3}
+{"question": "What is (((50 + 24) + 49) + 42)?", "answer": "The answer is 165", "depth": 3}
+{"question": "What is (29 + 12)?", "answer": "The answer is 41", "depth": 1}
+{"question": "What is (((11 + 23) + 37) - 13)?", "answer": "The answer is 58", "depth": 3}
+{"question": "What is (10 - 2)?", "answer": "The answer is 8", "depth": 1}
+{"question": "What is (((32 - 4) + 36) + 29)?", "answer": "The answer is 93", "depth": 3}
+{"question": "What is ((41 + 7) - 1)?", "answer": "The answer is 47", "depth": 2}
+{"question": "What is (((32 - 44) + 8) + 7)?", "answer": "The answer is 3", "depth": 3}
+{"question": "What is ((35 - 47) + 42)?", "answer": "The answer is 30", "depth": 2}
+{"question": "What is (((36 + 14) + 19) + 7)?", "answer": "The answer is 76", "depth": 3}
+{"question": "What is (35 + 35)?", "answer": "The answer is 70", "depth": 1}
+{"question": "What is ((28 + 3) + 35)?", "answer": "The answer is 66", "depth": 2}
+{"question": "What is (11 - 47)?", "answer": "The answer is -36", "depth": 1}
+{"question": "What is (((1 - 16) - 43) + 7)?", "answer": "The answer is -51", "depth": 3}
+{"question": "What is (((32 - 37) + 9) - 23)?", "answer": "The answer is -19", "depth": 3}
+{"question": "What is ((42 + 19) - 17)?", "answer": "The answer is 44", "depth": 2}
+{"question": "What is (40 + 32)?", "answer": "The answer is 72", "depth": 1}
+{"question": "What is ((8 - 40) + 6)?", "answer": "The answer is -26", "depth": 2}
+{"question": "What is ((18 - 32) - 32)?", "answer": "The answer is -46", "depth": 2}
+{"question": "What is (12 - 11)?", "answer": "The answer is 1", "depth": 1}
+{"question": "What is ((7 + 19) + 49)?", "answer": "The answer is 75", "depth": 2}
+{"question": "What is (16 - 14)?", "answer": "The answer is 2", "depth": 1}
+{"question": "What is ((20 + 17) + 17)?", "answer": "The answer is 54", "depth": 2}
+{"question": "What is ((30 + 43) + 37)?", "answer": "The answer is 110", "depth": 2}
+{"question": "What is ((49 + 20) - 18)?", "answer": "The answer is 51", "depth": 2}
+{"question": "What is (((45 - 10) + 30) - 11)?", "answer": "The answer is 54", "depth": 3}
+{"question": "What is ((41 - 48) + 25)?", "answer": "The answer is 18", "depth": 2}
+{"question": "What is (((32 + 50) - 3) - 47)?", "answer": "The answer is 32", "depth": 3}
+{"question": "What is (29 + 44)?", "answer": "The answer is 73", "depth": 1}
+{"question": "What is (9 - 49)?", "answer": "The answer is -40", "depth": 1}
+{"question": "What is (9 - 10)?", "answer": "The answer is -1", "depth": 1}
+{"question": "What is ((10 + 44) - 40)?", "answer": "The answer is 14", "depth": 2}
+{"question": "What is (((30 - 21) + 3) + 24)?", "answer": "The answer is 36", "depth": 3}
+{"question": "What is (32 - 39)?", "answer": "The answer is -7", "depth": 1}
+{"question": "What is (((30 + 7) - 16) - 21)?", "answer": "The answer is 0", "depth": 3}
+{"question": "What is ((33 + 28) - 40)?", "answer": "The answer is 21", "depth": 2}
+{"question": "What is ((34 - 46) - 27)?", "answer": "The answer is -39", "depth": 2}
+{"question": "What is (36 - 20)?", "answer": "The answer is 16", "depth": 1}
+{"question": "What is (((39 - 12) + 7) - 18)?", "answer": "The answer is 16", "depth": 3}
+{"question": "What is ((48 - 27) + 31)?", "answer": "The answer is 52", "depth": 2}
+{"question": "What is (((23 + 32) + 20) - 25)?", "answer": "The answer is 50", "depth": 3}
+{"question": "What is (39 - 5)?", "answer": "The answer is 34", "depth": 1}
+{"question": "What is ((44 + 13) - 26)?", "answer": "The answer is 31", "depth": 2}
+{"question": "What is ((25 + 35) + 7)?", "answer": "The answer is 67", "depth": 2}
+{"question": "What is (49 + 39)?", "answer": "The answer is 88", "depth": 1}
+{"question": "What is ((30 - 29) - 27)?", "answer": "The answer is -26", "depth": 2}
+{"question": "What is ((35 + 4) - 36)?", "answer": "The answer is 3", "depth": 2}
+{"question": "What is (((16 + 14) - 29) - 17)?", "answer": "The answer is -16", "depth": 3}
+{"question": "What is (((19 - 1) - 44) - 6)?", "answer": "The answer is -32", "depth": 3}
+{"question": "What is (20 - 33)?", "answer": "The answer is -13", "depth": 1}
+{"question": "What is (((25 - 3) + 37) - 4)?", "answer": "The answer is 55", "depth": 3}
+{"question": "What is ((37 - 35) - 40)?", "answer": "The answer is -38", "depth": 2}
+{"question": "What is ((15 - 11) + 36)?", "answer": "The answer is 40", "depth": 2}
+{"question": "What is (9 - 5)?", "answer": "The answer is 4", "depth": 1}
+{"question": "What is (((13 + 2) - 18) + 18)?", "answer": "The answer is 15", "depth": 3}
+{"question": "What is (7 + 25)?", "answer": "The answer is 32", "depth": 1}
+{"question": "What is ((46 + 6) + 17)?", "answer": "The answer is 69", "depth": 2}
+{"question": "What is (((37 - 38) + 45) + 39)?", "answer": "The answer is 83", "depth": 3}
+{"question": "What is ((38 - 27) + 4)?", "answer": "The answer is 15", "depth": 2}
+{"question": "What is (6 + 44)?", "answer": "The answer is 50", "depth": 1}
+{"question": "What is (42 - 47)?", "answer": "The answer is -5", "depth": 1}
+{"question": "What is ((37 + 9) - 6)?", "answer": "The answer is 40", "depth": 2}
+{"question": "What is (12 + 12)?", "answer": "The answer is 24", "depth": 1}
+{"question": "What is (((23 + 8) + 34) + 48)?", "answer": "The answer is 113", "depth": 3}
+{"question": "What is ((11 + 23) + 41)?", "answer": "The answer is 75", "depth": 2}
+{"question": "What is (((25 - 39) - 9) + 8)?", "answer": "The answer is -15", "depth": 3}
+{"question": "What is (((15 - 46) + 28) - 40)?", "answer": "The answer is -43", "depth": 3}
+{"question": "What is (29 - 7)?", "answer": "The answer is 22", "depth": 1}
+{"question": "What is (((14 + 10) + 25) - 16)?", "answer": "The answer is 33", "depth": 3}
+{"question": "What is ((25 + 25) - 26)?", "answer": "The answer is 24", "depth": 2}
+{"question": "What is ((45 + 10) + 14)?", "answer": "The answer is 69", "depth": 2}
+{"question": "What is ((50 + 7) - 5)?", "answer": "The answer is 52", "depth": 2}
+{"question": "What is (28 - 12)?", "answer": "The answer is 16", "depth": 1}
+{"question": "What is (30 - 36)?", "answer": "The answer is -6", "depth": 1}
+{"question": "What is (36 + 30)?", "answer": "The answer is 66", "depth": 1}
+{"question": "What is ((18 + 1) - 17)?", "answer": "The answer is 2", "depth": 2}
+{"question": "What is (((17 + 10) + 20) - 20)?", "answer": "The answer is 27", "depth": 3}
+{"question": "What is (34 + 15)?", "answer": "The answer is 49", "depth": 1}
+{"question": "What is ((28 - 21) + 49)?", "answer": "The answer is 56", "depth": 2}
+{"question": "What is (((36 - 27) - 35) + 45)?", "answer": "The answer is 19", "depth": 3}
+{"question": "What is (7 + 10)?", "answer": "The answer is 17", "depth": 1}
+{"question": "What is (6 + 20)?", "answer": "The answer is 26", "depth": 1}
+{"question": "What is ((39 - 2) - 41)?", "answer": "The answer is -4", "depth": 2}
+{"question": "What is ((24 + 13) - 13)?", "answer": "The answer is 24", "depth": 2}
+{"question": "What is (24 - 36)?", "answer": "The answer is -12", "depth": 1}
+{"question": "What is ((29 - 33) - 26)?", "answer": "The answer is -30", "depth": 2}
+{"question": "What is ((24 - 46) - 19)?", "answer": "The answer is -41", "depth": 2}
+{"question": "What is (((21 - 19) + 30) + 2)?", "answer": "The answer is 34", "depth": 3}
+{"question": "What is (14 - 15)?", "answer": "The answer is -1", "depth": 1}
+{"question": "What is (((44 - 41) - 9) - 43)?", "answer": "The answer is -49", "depth": 3}
+{"question": "What is (21 + 29)?", "answer": "The answer is 50", "depth": 1}
+{"question": "What is (((46 - 25) - 49) - 3)?", "answer": "The answer is -31", "depth": 3}
+{"question": "What is ((39 - 14) + 17)?", "answer": "The answer is 42", "depth": 2}
+{"question": "What is (((48 + 43) - 21) - 23)?", "answer": "The answer is 47", "depth": 3}
+{"question": "What is ((9 + 6) + 3)?", "answer": "The answer is 18", "depth": 2}
+{"question": "What is (((37 + 13) + 43) + 19)?", "answer": "The answer is 112", "depth": 3}
+{"question": "What is ((4 + 45) + 16)?", "answer": "The answer is 65", "depth": 2}
+{"question": "What is (((24 + 29) + 26) + 3)?", "answer": "The answer is 82", "depth": 3}
+{"question": "What is (((5 + 36) - 22) - 37)?", "answer": "The answer is -18", "depth": 3}
+{"question": "What is (21 - 47)?", "answer": "The answer is -26", "depth": 1}
+{"question": "What is ((22 - 46) + 19)?", "answer": "The answer is -5", "depth": 2}
+{"question": "What is (((31 + 48) + 44) - 36)?", "answer": "The answer is 87", "depth": 3}
+{"question": "What is ((31 + 12) + 17)?", "answer": "The answer is 60", "depth": 2}
+{"question": "What is (36 - 8)?", "answer": "The answer is 28", "depth": 1}
+{"question": "What is (((46 - 14) + 9) - 30)?", "answer": "The answer is 11", "depth": 3}
+{"question": "What is (12 - 3)?", "answer": "The answer is 9", "depth": 1}
+{"question": "What is ((35 - 25) - 38)?", "answer": "The answer is -28", "depth": 2}
+{"question": "What is (((29 - 39) + 34) - 9)?", "answer": "The answer is 15", "depth": 3}
+{"question": "What is (46 + 46)?", "answer": "The answer is 92", "depth": 1}
+{"question": "What is (((15 - 16) - 28) + 4)?", "answer": "The answer is -25", "depth": 3}
+{"question": "What is (16 - 38)?", "answer": "The answer is -22", "depth": 1}
+{"question": "What is ((26 - 18) - 25)?", "answer": "The answer is -17", "depth": 2}
+{"question": "What is (14 - 18)?", "answer": "The answer is -4", "depth": 1}
+{"question": "What is (((37 - 12) + 46) - 13)?", "answer": "The answer is 58", "depth": 3}
+{"question": "What is (35 + 29)?", "answer": "The answer is 64", "depth": 1}
+{"question": "What is ((4 + 39) + 1)?", "answer": "The answer is 44", "depth": 2}
+{"question": "What is (((9 + 35) - 21) - 18)?", "answer": "The answer is 5", "depth": 3}
+{"question": "What is ((46 + 46) - 4)?", "answer": "The answer is 88", "depth": 2}
+{"question": "What is (7 + 29)?", "answer": "The answer is 36", "depth": 1}
+{"question": "What is (34 + 28)?", "answer": "The answer is 62", "depth": 1}
+{"question": "What is ((50 - 47) - 10)?", "answer": "The answer is -7", "depth": 2}
+{"question": "What is (((1 + 4) - 12) - 27)?", "answer": "The answer is -34", "depth": 3}
+{"question": "What is (33 - 5)?", "answer": "The answer is 28", "depth": 1}
+{"question": "What is ((20 + 28) + 34)?", "answer": "The answer is 82", "depth": 2}
+{"question": "What is ((44 + 3) - 33)?", "answer": "The answer is 14", "depth": 2}
+{"question": "What is (((26 + 5) + 29) - 1)?", "answer": "The answer is 59", "depth": 3}
+{"question": "What is ((46 + 40) - 24)?", "answer": "The answer is 62", "depth": 2}
+{"question": "What is ((36 - 12) + 25)?", "answer": "The answer is 49", "depth": 2}
+{"question": "What is ((16 - 9) - 2)?", "answer": "The answer is 5", "depth": 2}
+{"question": "What is (((20 + 42) + 48) - 34)?", "answer": "The answer is 76", "depth": 3}
+{"question": "What is ((7 - 22) + 26)?", "answer": "The answer is 11", "depth": 2}
+{"question": "What is (((7 + 16) - 4) - 5)?", "answer": "The answer is 14", "depth": 3}
+{"question": "What is ((8 - 7) - 41)?", "answer": "The answer is -40", "depth": 2}
+{"question": "What is ((15 + 4) - 8)?", "answer": "The answer is 11", "depth": 2}
+{"question": "What is (15 - 33)?", "answer": "The answer is -18", "depth": 1}
+{"question": "What is ((14 - 18) - 44)?", "answer": "The answer is -48", "depth": 2}
+{"question": "What is (((17 + 12) + 46) + 5)?", "answer": "The answer is 80", "depth": 3}
+{"question": "What is ((32 - 23) + 3)?", "answer": "The answer is 12", "depth": 2}
+{"question": "What is ((15 - 27) + 13)?", "answer": "The answer is 1", "depth": 2}
+{"question": "What is (((1 - 14) + 44) + 11)?", "answer": "The answer is 42", "depth": 3}
+{"question": "What is (25 - 23)?", "answer": "The answer is 2", "depth": 1}
+{"question": "What is (37 + 22)?", "answer": "The answer is 59", "depth": 1}
+{"question": "What is ((36 + 1) - 1)?", "answer": "The answer is 36", "depth": 2}
+{"question": "What is ((36 - 10) + 49)?", "answer": "The answer is 75", "depth": 2}
+{"question": "What is (((20 + 43) - 35) + 44)?", "answer": "The answer is 72", "depth": 3}
+{"question": "What is (4 - 1)?", "answer": "The answer is 3", "depth": 1}
+{"question": "What is ((44 - 36) - 8)?", "answer": "The answer is 0", "depth": 2}
+{"question": "What is ((26 + 13) + 38)?", "answer": "The answer is 77", "depth": 2}
+{"question": "What is ((8 + 6) - 21)?", "answer": "The answer is -7", "depth": 2}
+{"question": "What is ((17 + 32) + 11)?", "answer": "The answer is 60", "depth": 2}
+{"question": "What is (6 + 40)?", "answer": "The answer is 46", "depth": 1}
+{"question": "What is ((26 - 48) - 6)?", "answer": "The answer is -28", "depth": 2}
+{"question": "What is (((38 - 50) - 23) - 10)?", "answer": "The answer is -45", "depth": 3}
+{"question": "What is (((1 + 50) - 35) - 17)?", "answer": "The answer is -1", "depth": 3}
+{"question": "What is ((26 + 27) + 3)?", "answer": "The answer is 56", "depth": 2}
+{"question": "What is ((46 + 15) - 32)?", "answer": "The answer is 29", "depth": 2}
+{"question": "What is (40 + 22)?", "answer": "The answer is 62", "depth": 1}
+{"question": "What is (45 + 2)?", "answer": "The answer is 47", "depth": 1}
+{"question": "What is (((10 + 5) - 2) - 14)?", "answer": "The answer is -1", "depth": 3}
+{"question": "What is ((15 + 8) - 33)?", "answer": "The answer is -10", "depth": 2}
+{"question": "What is (11 - 8)?", "answer": "The answer is 3", "depth": 1}
+{"question": "What is ((2 + 34) + 3)?", "answer": "The answer is 39", "depth": 2}
+{"question": "What is (40 + 42)?", "answer": "The answer is 82", "depth": 1}
+{"question": "What is ((19 - 13) - 38)?", "answer": "The answer is -32", "depth": 2}
+{"question": "What is (((22 + 10) - 21) + 33)?", "answer": "The answer is 44", "depth": 3}
+{"question": "What is (15 + 30)?", "answer": "The answer is 45", "depth": 1}
+{"question": "What is (23 + 22)?", "answer": "The answer is 45", "depth": 1}
+{"question": "What is (47 - 41)?", "answer": "The answer is 6", "depth": 1}
+{"question": "What is ((2 - 17) + 14)?", "answer": "The answer is -1", "depth": 2}
+{"question": "What is (26 - 14)?", "answer": "The answer is 12", "depth": 1}
+{"question": "What is (((48 - 41) + 37) - 10)?", "answer": "The answer is 34", "depth": 3}
+{"question": "What is ((20 + 49) + 49)?", "answer": "The answer is 118", "depth": 2}
+{"question": "What is ((43 - 24) - 19)?", "answer": "The answer is 0", "depth": 2}
+{"question": "What is (29 - 26)?", "answer": "The answer is 3", "depth": 1}
+{"question": "What is (3 + 46)?", "answer": "The answer is 49", "depth": 1}
+{"question": "What is ((18 + 35) - 41)?", "answer": "The answer is 12", "depth": 2}
+{"question": "What is (((30 + 14) - 9) + 50)?", "answer": "The answer is 85", "depth": 3}
+{"question": "What is ((21 - 25) + 38)?", "answer": "The answer is 34", "depth": 2}
+{"question": "What is ((47 + 27) + 23)?", "answer": "The answer is 97", "depth": 2}
+{"question": "What is (43 + 33)?", "answer": "The answer is 76", "depth": 1}
+{"question": "What is (41 + 34)?", "answer": "The answer is 75", "depth": 1}
+{"question": "What is (32 - 14)?", "answer": "The answer is 18", "depth": 1}
+{"question": "What is (((22 - 23) - 22) - 30)?", "answer": "The answer is -53", "depth": 3}
+{"question": "What is (25 - 17)?", "answer": "The answer is 8", "depth": 1}
+{"question": "What is ((43 - 15) - 46)?", "answer": "The answer is -18", "depth": 2}
+{"question": "What is ((38 + 25) - 8)?", "answer": "The answer is 55", "depth": 2}
+{"question": "What is (((3 + 4) - 20) - 39)?", "answer": "The answer is -52", "depth": 3}
+{"question": "What is ((15 - 35) + 43)?", "answer": "The answer is 23", "depth": 2}
+{"question": "What is ((1 + 11) - 36)?", "answer": "The answer is -24", "depth": 2}
+{"question": "What is (((29 + 44) - 17) + 47)?", "answer": "The answer is 103", "depth": 3}
+{"question": "What is ((25 - 28) + 50)?", "answer": "The answer is 47", "depth": 2}
+{"question": "What is (19 - 15)?", "answer": "The answer is 4", "depth": 1}
+{"question": "What is ((32 + 10) - 24)?", "answer": "The answer is 18", "depth": 2}
+{"question": "What is (((29 + 25) - 36) - 40)?", "answer": "The answer is -22", "depth": 3}
+{"question": "What is (((18 - 14) + 48) + 48)?", "answer": "The answer is 100", "depth": 3}
+{"question": "What is ((42 + 19) + 35)?", "answer": "The answer is 96", "depth": 2}
+{"question": "What is (11 + 13)?", "answer": "The answer is 24", "depth": 1}
+{"question": "What is (43 + 38)?", "answer": "The answer is 81", "depth": 1}
+{"question": "What is ((25 + 25) - 44)?", "answer": "The answer is 6", "depth": 2}
+{"question": "What is (((6 - 13) + 50) - 30)?", "answer": "The answer is 13", "depth": 3}
+{"question": "What is ((15 - 38) - 49)?", "answer": "The answer is -72", "depth": 2}
+{"question": "What is ((17 - 45) + 21)?", "answer": "The answer is -7", "depth": 2}
+{"question": "What is (((3 - 36) + 48) + 22)?", "answer": "The answer is 37", "depth": 3}
+{"question": "What is ((6 + 4) + 7)?", "answer": "The answer is 17", "depth": 2}
+{"question": "What is (((21 + 6) + 29) - 28)?", "answer": "The answer is 28", "depth": 3}
+{"question": "What is ((8 + 8) - 11)?", "answer": "The answer is 5", "depth": 2}
+{"question": "What is (((10 + 20) + 35) - 30)?", "answer": "The answer is 35", "depth": 3}
+{"question": "What is ((49 - 10) + 25)?", "answer": "The answer is 64", "depth": 2}
+{"question": "What is ((48 - 29) + 10)?", "answer": "The answer is 29", "depth": 2}
+{"question": "What is (8 + 29)?", "answer": "The answer is 37", "depth": 1}
+{"question": "What is (((27 - 3) - 25) - 23)?", "answer": "The answer is -24", "depth": 3}
+{"question": "What is (((18 - 34) - 41) + 34)?", "answer": "The answer is -23", "depth": 3}
+{"question": "What is (16 + 11)?", "answer": "The answer is 27", "depth": 1}
+{"question": "What is ((30 + 38) - 49)?", "answer": "The answer is 19", "depth": 2}
+{"question": "What is ((45 - 33) + 9)?", "answer": "The answer is 21", "depth": 2}
+{"question": "What is (35 - 38)?", "answer": "The answer is -3", "depth": 1}
+{"question": "What is ((7 + 43) - 2)?", "answer": "The answer is 48", "depth": 2}
+{"question": "What is (((1 - 43) + 38) + 9)?", "answer": "The answer is 5", "depth": 3}
+{"question": "What is (45 + 36)?", "answer": "The answer is 81", "depth": 1}
+{"question": "What is (31 - 27)?", "answer": "The answer is 4", "depth": 1}
+{"question": "What is ((40 - 20) + 29)?", "answer": "The answer is 49", "depth": 2}
+{"question": "What is (((24 + 41) + 37) - 14)?", "answer": "The answer is 88", "depth": 3}
+{"question": "What is (((37 - 21) - 45) + 33)?", "answer": "The answer is 4", "depth": 3}
+{"question": "What is (12 - 35)?", "answer": "The answer is -23", "depth": 1}
+{"question": "What is (29 + 30)?", "answer": "The answer is 59", "depth": 1}
+{"question": "What is (((29 + 11) - 7) - 11)?", "answer": "The answer is 22", "depth": 3}
+{"question": "What is (((45 - 29) - 44) + 22)?", "answer": "The answer is -6", "depth": 3}
+{"question": "What is ((50 + 44) - 47)?", "answer": "The answer is 47", "depth": 2}
+{"question": "What is (((42 - 35) - 22) + 46)?", "answer": "The answer is 31", "depth": 3}
+{"question": "What is ((49 - 6) - 14)?", "answer": "The answer is 29", "depth": 2}
+{"question": "What is (((35 - 40) + 9) + 18)?", "answer": "The answer is 22", "depth": 3}
+{"question": "What is ((1 - 22) + 4)?", "answer": "The answer is -17", "depth": 2}
+{"question": "What is (((14 - 16) - 5) - 11)?", "answer": "The answer is -18", "depth": 3}
+{"question": "What is ((26 - 13) - 41)?", "answer": "The answer is -28", "depth": 2}
+{"question": "What is ((19 - 38) - 42)?", "answer": "The answer is -61", "depth": 2}
+{"question": "What is (8 + 6)?", "answer": "The answer is 14", "depth": 1}
+{"question": "What is (45 + 16)?", "answer": "The answer is 61", "depth": 1}
+{"question": "What is (39 - 3)?", "answer": "The answer is 36", "depth": 1}
+{"question": "What is ((15 + 34) + 11)?", "answer": "The answer is 60", "depth": 2}
+{"question": "What is (49 + 24)?", "answer": "The answer is 73", "depth": 1}
+{"question": "What is (((28 - 18) + 42) - 44)?", "answer": "The answer is 8", "depth": 3}
+{"question": "What is ((39 + 46) - 1)?", "answer": "The answer is 84", "depth": 2}
+{"question": "What is ((49 - 36) + 12)?", "answer": "The answer is 25", "depth": 2}
+{"question": "What is (42 - 38)?", "answer": "The answer is 4", "depth": 1}
+{"question": "What is ((28 + 40) + 12)?", "answer": "The answer is 80", "depth": 2}
+{"question": "What is (23 + 7)?", "answer": "The answer is 30", "depth": 1}
+{"question": "What is (((4 + 13) - 6) - 15)?", "answer": "The answer is -4", "depth": 3}
+{"question": "What is ((39 + 50) - 1)?", "answer": "The answer is 88", "depth": 2}
+{"question": "What is ((30 - 7) + 23)?", "answer": "The answer is 46", "depth": 2}
+{"question": "What is (((31 + 4) + 49) + 28)?", "answer": "The answer is 112", "depth": 3}
+{"question": "What is (11 - 50)?", "answer": "The answer is -39", "depth": 1}
+{"question": "What is (20 - 38)?", "answer": "The answer is -18", "depth": 1}
+{"question": "What is (2 + 18)?", "answer": "The answer is 20", "depth": 1}
+{"question": "What is (((39 + 31) - 31) - 21)?", "answer": "The answer is 18", "depth": 3}
+{"question": "What is (49 - 44)?", "answer": "The answer is 5", "depth": 1}
+{"question": "What is (40 + 48)?", "answer": "The answer is 88", "depth": 1}
+{"question": "What is (((44 - 39) + 30) + 20)?", "answer": "The answer is 55", "depth": 3}
+{"question": "What is ((48 + 15) + 27)?", "answer": "The answer is 90", "depth": 2}
+{"question": "What is (5 - 20)?", "answer": "The answer is -15", "depth": 1}
+{"question": "What is ((10 + 50) + 21)?", "answer": "The answer is 81", "depth": 2}
+{"question": "What is (((36 - 38) + 13) - 13)?", "answer": "The answer is -2", "depth": 3}
+{"question": "What is (29 - 15)?", "answer": "The answer is 14", "depth": 1}
+{"question": "What is (23 + 38)?", "answer": "The answer is 61", "depth": 1}
+{"question": "What is (46 + 23)?", "answer": "The answer is 69", "depth": 1}
+{"question": "What is (((12 - 23) - 16) + 49)?", "answer": "The answer is 22", "depth": 3}
+{"question": "What is (((18 + 41) - 5) - 31)?", "answer": "The answer is 23", "depth": 3}
+{"question": "What is (27 + 25)?", "answer": "The answer is 52", "depth": 1}
+{"question": "What is (((44 + 12) - 13) - 12)?", "answer": "The answer is 31", "depth": 3}
+{"question": "What is (((15 - 50) - 39) + 13)?", "answer": "The answer is -61", "depth": 3}
+{"question": "What is (((6 - 21) + 46) + 13)?", "answer": "The answer is 44", "depth": 3}
+{"question": "What is (14 + 20)?", "answer": "The answer is 34", "depth": 1}
+{"question": "What is (((30 + 24) + 26) - 27)?", "answer": "The answer is 53", "depth": 3}
+{"question": "What is (((28 + 11) - 31) + 18)?", "answer": "The answer is 26", "depth": 3}
+{"question": "What is (((45 - 48) + 30) - 37)?", "answer": "The answer is -10", "depth": 3}
+{"question": "What is ((34 - 40) - 45)?", "answer": "The answer is -51", "depth": 2}
+{"question": "What is (((28 + 33) - 42) - 14)?", "answer": "The answer is 5", "depth": 3}
+{"question": "What is (((9 - 28) + 26) + 35)?", "answer": "The answer is 42", "depth": 3}
+{"question": "What is ((30 - 48) + 32)?", "answer": "The answer is 14", "depth": 2}
+{"question": "What is (14 + 2)?", "answer": "The answer is 16", "depth": 1}
+{"question": "What is ((30 + 26) + 44)?", "answer": "The answer is 100", "depth": 2}
+{"question": "What is (((39 + 43) + 9) + 37)?", "answer": "The answer is 128", "depth": 3}
+{"question": "What is (49 - 12)?", "answer": "The answer is 37", "depth": 1}
+{"question": "What is (((36 - 42) - 10) + 23)?", "answer": "The answer is 7", "depth": 3}
+{"question": "What is (36 + 42)?", "answer": "The answer is 78", "depth": 1}
+{"question": "What is ((39 + 39) - 4)?", "answer": "The answer is 74", "depth": 2}
+{"question": "What is (((25 - 22) + 2) - 24)?", "answer": "The answer is -19", "depth": 3}
+{"question": "What is (((46 - 31) - 45) + 1)?", "answer": "The answer is -29", "depth": 3}
+{"question": "What is (49 - 2)?", "answer": "The answer is 47", "depth": 1}
+{"question": "What is (22 + 32)?", "answer": "The answer is 54", "depth": 1}
+{"question": "What is (((36 - 32) + 46) - 3)?", "answer": "The answer is 47", "depth": 3}
+{"question": "What is ((25 - 33) + 3)?", "answer": "The answer is -5", "depth": 2}
+{"question": "What is (((38 - 19) - 31) - 31)?", "answer": "The answer is -43", "depth": 3}
+{"question": "What is (((45 - 28) + 33) - 31)?", "answer": "The answer is 19", "depth": 3}
+{"question": "What is ((37 - 7) - 33)?", "answer": "The answer is -3", "depth": 2}
+{"question": "What is (32 + 39)?", "answer": "The answer is 71", "depth": 1}
+{"question": "What is (16 + 19)?", "answer": "The answer is 35", "depth": 1}
+{"question": "What is (16 + 50)?", "answer": "The answer is 66", "depth": 1}
+{"question": "What is (((24 - 27) - 33) - 5)?", "answer": "The answer is -41", "depth": 3}
+{"question": "What is ((41 + 12) + 15)?", "answer": "The answer is 68", "depth": 2}
+{"question": "What is ((22 + 34) + 2)?", "answer": "The answer is 58", "depth": 2}
+{"question": "What is (((33 - 7) + 2) + 8)?", "answer": "The answer is 36", "depth": 3}
+{"question": "What is ((18 + 41) + 18)?", "answer": "The answer is 77", "depth": 2}
+{"question": "What is ((3 - 20) + 45)?", "answer": "The answer is 28", "depth": 2}
+{"question": "What is (10 - 12)?", "answer": "The answer is -2", "depth": 1}
+{"question": "What is ((3 + 1) - 8)?", "answer": "The answer is -4", "depth": 2}
+{"question": "What is ((23 + 23) - 9)?", "answer": "The answer is 37", "depth": 2}
+{"question": "What is (49 - 4)?", "answer": "The answer is 45", "depth": 1}
+{"question": "What is (((41 - 26) - 14) - 32)?", "answer": "The answer is -31", "depth": 3}
+{"question": "What is (((46 + 42) - 41) + 7)?", "answer": "The answer is 54", "depth": 3}
+{"question": "What is (((12 - 41) + 9) + 4)?", "answer": "The answer is -16", "depth": 3}
+{"question": "What is (41 + 11)?", "answer": "The answer is 52", "depth": 1}
+{"question": "What is ((12 - 4) + 4)?", "answer": "The answer is 12", "depth": 2}
+{"question": "What is ((36 - 50) + 50)?", "answer": "The answer is 36", "depth": 2}
+{"question": "What is (((9 + 43) + 3) + 35)?", "answer": "The answer is 90", "depth": 3}
+{"question": "What is (((44 + 32) - 36) - 2)?", "answer": "The answer is 38", "depth": 3}
+{"question": "What is (49 + 48)?", "answer": "The answer is 97", "depth": 1}
+{"question": "What is (46 - 37)?", "answer": "The answer is 9", "depth": 1}
+{"question": "What is (((39 - 3) - 33) + 9)?", "answer": "The answer is 12", "depth": 3}
+{"question": "What is ((23 - 45) - 37)?", "answer": "The answer is -59", "depth": 2}
+{"question": "What is (42 - 38)?", "answer": "The answer is 4", "depth": 1}
+{"question": "What is (((9 + 18) - 20) - 29)?", "answer": "The answer is -22", "depth": 3}
+{"question": "What is (43 + 37)?", "answer": "The answer is 80", "depth": 1}
+{"question": "What is ((26 - 33) + 38)?", "answer": "The answer is 31", "depth": 2}
+{"question": "What is (((11 - 40) - 2) - 41)?", "answer": "The answer is -72", "depth": 3}
+{"question": "What is ((42 - 30) - 21)?", "answer": "The answer is -9", "depth": 2}
+{"question": "What is (((10 - 1) + 37) + 39)?", "answer": "The answer is 85", "depth": 3}
+{"question": "What is (45 - 9)?", "answer": "The answer is 36", "depth": 1}
+{"question": "What is ((2 + 24) + 10)?", "answer": "The answer is 36", "depth": 2}
+{"question": "What is (((34 + 48) - 17) + 21)?", "answer": "The answer is 86", "depth": 3}
+{"question": "What is (11 + 12)?", "answer": "The answer is 23", "depth": 1}
+{"question": "What is ((23 + 32) + 32)?", "answer": "The answer is 87", "depth": 2}
+{"question": "What is ((6 - 11) - 48)?", "answer": "The answer is -53", "depth": 2}
+{"question": "What is (((2 - 7) - 45) + 1)?", "answer": "The answer is -49", "depth": 3}
+{"question": "What is ((24 - 43) + 35)?", "answer": "The answer is 16", "depth": 2}
+{"question": "What is (((48 - 49) - 37) + 15)?", "answer": "The answer is -23", "depth": 3}
+{"question": "What is (((41 - 14) - 16) + 7)?", "answer": "The answer is 18", "depth": 3}
+{"question": "What is (33 - 49)?", "answer": "The answer is -16", "depth": 1}
+{"question": "What is ((7 - 5) - 6)?", "answer": "The answer is -4", "depth": 2}
+{"question": "What is ((32 - 17) + 1)?", "answer": "The answer is 16", "depth": 2}
+{"question": "What is (50 - 48)?", "answer": "The answer is 2", "depth": 1}
+{"question": "What is (((24 + 30) - 21) - 2)?", "answer": "The answer is 31", "depth": 3}
+{"question": "What is (((7 + 46) + 49) - 6)?", "answer": "The answer is 96", "depth": 3}
+{"question": "What is (((29 - 41) - 1) + 2)?", "answer": "The answer is -11", "depth": 3}
+{"question": "What is (28 + 31)?", "answer": "The answer is 59", "depth": 1}
+{"question": "What is (25 + 44)?", "answer": "The answer is 69", "depth": 1}
+{"question": "What is ((47 - 42) - 2)?", "answer": "The answer is 3", "depth": 2}
+{"question": "What is (22 + 6)?", "answer": "The answer is 28", "depth": 1}
+{"question": "What is ((29 + 12) + 36)?", "answer": "The answer is 77", "depth": 2}
+{"question": "What is ((13 + 24) + 11)?", "answer": "The answer is 48", "depth": 2}
+{"question": "What is (10 + 24)?", "answer": "The answer is 34", "depth": 1}
+{"question": "What is ((39 - 39) - 39)?", "answer": "The answer is -39", "depth": 2}
+{"question": "What is (40 + 15)?", "answer": "The answer is 55", "depth": 1}
+{"question": "What is (38 - 2)?", "answer": "The answer is 36", "depth": 1}
+{"question": "What is ((35 + 26) - 10)?", "answer": "The answer is 51", "depth": 2}
+{"question": "What is ((44 - 23) - 40)?", "answer": "The answer is -19", "depth": 2}
+{"question": "What is (49 + 21)?", "answer": "The answer is 70", "depth": 1}
+{"question": "What is ((9 + 45) + 11)?", "answer": "The answer is 65", "depth": 2}
+{"question": "What is (40 + 14)?", "answer": "The answer is 54", "depth": 1}
+{"question": "What is (2 + 42)?", "answer": "The answer is 44", "depth": 1}
+{"question": "What is (((31 - 2) + 49) + 47)?", "answer": "The answer is 125", "depth": 3}
+{"question": "What is ((14 + 35) + 3)?", "answer": "The answer is 52", "depth": 2}
+{"question": "What is (11 + 27)?", "answer": "The answer is 38", "depth": 1}
+{"question": "What is ((50 + 41) - 30)?", "answer": "The answer is 61", "depth": 2}
+{"question": "What is (8 + 44)?", "answer": "The answer is 52", "depth": 1}
+{"question": "What is (((13 + 25) + 39) + 34)?", "answer": "The answer is 111", "depth": 3}
+{"question": "What is (((32 + 46) - 37) + 22)?", "answer": "The answer is 63", "depth": 3}
+{"question": "What is (((45 - 24) - 12) + 28)?", "answer": "The answer is 37", "depth": 3}
+{"question": "What is ((4 + 32) + 2)?", "answer": "The answer is 38", "depth": 2}
+{"question": "What is (6 - 43)?", "answer": "The answer is -37", "depth": 1}
+{"question": "What is (5 - 26)?", "answer": "The answer is -21", "depth": 1}
+{"question": "What is ((40 - 16) + 20)?", "answer": "The answer is 44", "depth": 2}
+{"question": "What is (47 + 19)?", "answer": "The answer is 66", "depth": 1}
+{"question": "What is ((48 + 10) - 47)?", "answer": "The answer is 11", "depth": 2}
+{"question": "What is (((7 - 17) + 22) + 38)?", "answer": "The answer is 50", "depth": 3}
+{"question": "What is (((24 - 48) + 24) + 26)?", "answer": "The answer is 26", "depth": 3}
+{"question": "What is (11 + 45)?", "answer": "The answer is 56", "depth": 1}
+{"question": "What is (((22 - 2) + 41) - 22)?", "answer": "The answer is 39", "depth": 3}
+{"question": "What is (((4 + 39) + 47) + 18)?", "answer": "The answer is 108", "depth": 3}
+{"question": "What is (17 - 26)?", "answer": "The answer is -9", "depth": 1}
+{"question": "What is ((49 - 34) - 45)?", "answer": "The answer is -30", "depth": 2}
+{"question": "What is ((11 - 38) + 40)?", "answer": "The answer is 13", "depth": 2}
+{"question": "What is ((23 + 43) + 45)?", "answer": "The answer is 111", "depth": 2}
+{"question": "What is ((19 - 25) - 33)?", "answer": "The answer is -39", "depth": 2}
+{"question": "What is ((1 - 30) - 2)?", "answer": "The answer is -31", "depth": 2}
+{"question": "What is (46 + 45)?", "answer": "The answer is 91", "depth": 1}
+{"question": "What is (28 + 40)?", "answer": "The answer is 68", "depth": 1}
+{"question": "What is (((44 + 5) - 45) - 8)?", "answer": "The answer is -4", "depth": 3}
+{"question": "What is (10 + 4)?", "answer": "The answer is 14", "depth": 1}
+{"question": "What is ((21 - 27) - 36)?", "answer": "The answer is -42", "depth": 2}
+{"question": "What is (31 - 25)?", "answer": "The answer is 6", "depth": 1}
+{"question": "What is ((49 - 14) + 4)?", "answer": "The answer is 39", "depth": 2}
+{"question": "What is (24 + 31)?", "answer": "The answer is 55", "depth": 1}
+{"question": "What is (((16 - 18) + 29) + 24)?", "answer": "The answer is 51", "depth": 3}
+{"question": "What is ((2 - 43) - 14)?", "answer": "The answer is -55", "depth": 2}
+{"question": "What is (((35 - 18) - 13) - 22)?", "answer": "The answer is -18", "depth": 3}
+{"question": "What is (((37 - 16) - 13) + 49)?", "answer": "The answer is 57", "depth": 3}
+{"question": "What is (((31 + 11) + 20) - 16)?", "answer": "The answer is 46", "depth": 3}
+{"question": "What is (((1 + 5) - 32) + 10)?", "answer": "The answer is -16", "depth": 3}
+{"question": "What is (((48 - 23) + 41) + 32)?", "answer": "The answer is 98", "depth": 3}
+{"question": "What is ((45 - 42) - 5)?", "answer": "The answer is -2", "depth": 2}
+{"question": "What is ((37 + 49) - 22)?", "answer": "The answer is 64", "depth": 2}
+{"question": "What is (((12 + 16) - 3) + 32)?", "answer": "The answer is 57", "depth": 3}
+{"question": "What is (((32 + 30) - 38) - 2)?", "answer": "The answer is 22", "depth": 3}
+{"question": "What is ((16 + 27) + 8)?", "answer": "The answer is 51", "depth": 2}
+{"question": "What is (((48 + 44) + 18) - 49)?", "answer": "The answer is 61", "depth": 3}
+{"question": "What is (16 + 5)?", "answer": "The answer is 21", "depth": 1}
+{"question": "What is ((3 + 29) + 9)?", "answer": "The answer is 41", "depth": 2}
+{"question": "What is ((17 - 20) - 19)?", "answer": "The answer is -22", "depth": 2}
+{"question": "What is (((28 - 18) + 15) - 10)?", "answer": "The answer is 15", "depth": 3}
+{"question": "What is (((8 + 16) + 27) + 8)?", "answer": "The answer is 59", "depth": 3}
+{"question": "What is (32 - 28)?", "answer": "The answer is 4", "depth": 1}
+{"question": "What is (((34 - 17) + 14) + 36)?", "answer": "The answer is 67", "depth": 3}
+{"question": "What is (45 - 25)?", "answer": "The answer is 20", "depth": 1}
+{"question": "What is (17 + 33)?", "answer": "The answer is 50", "depth": 1}
+{"question": "What is (((36 - 9) + 45) - 35)?", "answer": "The answer is 37", "depth": 3}
+{"question": "What is (((38 + 45) - 19) - 41)?", "answer": "The answer is 23", "depth": 3}
+{"question": "What is (42 - 18)?", "answer": "The answer is 24", "depth": 1}
+{"question": "What is (((16 - 11) - 24) + 32)?", "answer": "The answer is 13", "depth": 3}

@@ -7,32 +7,33 @@ from typing import Optional, List
 import json
 
 
-# GPT-2 tokenizer vocab size
+# Vocab sizes
 GPT2_VOCAB_SIZE = 50257
+ARITHMETIC_VOCAB_SIZE = 21  # Simple char-level tokenizer for arithmetic
 
 
 @dataclass
 class ModelConfig:
     """Model architecture configuration."""
-    vocab_size: int = GPT2_VOCAB_SIZE  # GPT-2 tokenizer vocab
-    d_model: int = 512
-    n_heads: int = 8
-    n_layers: int = 6
-    d_ff: int = 2048
-    max_iterations: int = 8
+    vocab_size: int = GPT2_VOCAB_SIZE  # GPT-2 tokenizer for verbal format
+    d_model: int = 256
+    n_heads: int = 4
+    n_layers: int = 4
+    d_ff: int = 512
+    max_iterations: int = 6
     dropout: float = 0.1
-    max_seq_len: int = 512
+    max_seq_len: int = 128
 
 
 @dataclass
 class DataConfig:
     """Dataset configuration."""
-    data_dir: str = "data/gsm8k"
+    data_dir: str = "data/arithmetic"
     tokenizer_name: str = "gpt2"
-    max_seq_len: int = 512
-    batch_size: int = 16
+    max_seq_len: int = 128
+    batch_size: int = 64
     num_workers: int = 4
-    simple_mode: bool = True  # Use GSM8KDatasetSimple
+    simple_mode: bool = True
 
 
 @dataclass
