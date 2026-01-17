@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+checkpoints/
+results/
+*.pt
+*.pth
+.venv/
+venv/
+nul
