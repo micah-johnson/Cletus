@@ -203,34 +203,43 @@ class GSM8KDatasetSimple(Dataset):
         if self.tokenizer.eos_token_id is not None:
             answer_tokens = answer_tokens + [self.tokenizer.eos_token_id]
 
-        # Combine: [question tokens] [answer tokens]
-        full_sequence = question_tokens + answer_tokens
+        # INPUT: question + PAD tokens where answer will go (model must predict these)
+        answer_len = len(answer_tokens)
+        input_sequence = question_tokens + [self.tokenizer.pad_token_id] * answer_len
 
-        # Pad to max length
-        pad_len = self.max_seq_len - len(full_sequence)
+        # TARGET: question + answer (we only compute loss on answer part)
+        target_sequence = question_tokens + answer_tokens
+
+        # Pad both to max length
+        pad_len = self.max_seq_len - len(input_sequence)
         if pad_len > 0:
-            full_sequence = full_sequence + [self.tokenizer.pad_token_id] * pad_len
+            input_sequence = input_sequence + [self.tokenizer.pad_token_id] * pad_len
+            target_sequence = target_sequence + [self.tokenizer.pad_token_id] * pad_len
         else:
-            full_sequence = full_sequence[:self.max_seq_len]
+            input_sequence = input_sequence[:self.max_seq_len]
+            target_sequence = target_sequence[:self.max_seq_len]
 
-        input_ids = torch.tensor(full_sequence, dtype=torch.long)
+        input_ids = torch.tensor(input_sequence, dtype=torch.long)
+        target_ids = torch.tensor(target_sequence, dtype=torch.long)
 
-        # Target: same as input, but we mask the question part
-        target_ids = input_ids.clone()
-        target_ids[:len(question_tokens)] = -100  # Ignore question in loss
+        # Mask question part in target (only compute loss on answer)
+        target_ids[:len(question_tokens)] = -100
 
-        # Also ignore padding
+        # Also ignore padding in target
         target_ids[target_ids == self.tokenizer.pad_token_id] = -100
 
-        # Attention mask
-        attention_mask = (input_ids != self.tokenizer.pad_token_id).long()
+        # Attention mask (attend to question, not to answer placeholders or padding)
+        attention_mask = torch.zeros(self.max_seq_len, dtype=torch.long)
+        attention_mask[:len(question_tokens)] = 1
 
         return {
             'input_ids': input_ids,
             'target_ids': target_ids,
             'attention_mask': attention_mask,
             'question': question,
-            'answer': answer
+            'answer': answer,
+            'answer_start': len(question_tokens),
+            'answer_len': answer_len
         }
 
 

@@ -173,7 +173,7 @@ TINY_CONFIG = ExperimentConfig(
         max_seq_len=256
     ),
     data=DataConfig(
-        batch_size=512,
+        batch_size=32,
         max_seq_len=256
     ),
     train=TrainConfig(

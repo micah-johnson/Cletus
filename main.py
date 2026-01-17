@@ -207,11 +207,21 @@ def cmd_demo(args):
             print("Goodbye!")
             break
 
-        # Tokenize input
-        input_text = f"{user_input}"
-        tokens = tokenizer.encode(input_text, add_special_tokens=True, max_length=max_seq_len, truncation=True)
-        tokens = tokens + [tokenizer.pad_token_id] * (max_seq_len - len(tokens))
-        input_ids = torch.tensor([tokens], dtype=torch.long, device=device)
+        # Tokenize question
+        question_tokens = tokenizer.encode(user_input, add_special_tokens=True, max_length=max_seq_len - 32, truncation=True)
+        question_len = len(question_tokens)
+
+        # Add placeholder tokens for answer (model will predict these)
+        answer_placeholder_len = 32  # Reserve space for answer
+        input_tokens = question_tokens + [tokenizer.pad_token_id] * answer_placeholder_len
+
+        # Pad to max_seq_len
+        if len(input_tokens) < max_seq_len:
+            input_tokens = input_tokens + [tokenizer.pad_token_id] * (max_seq_len - len(input_tokens))
+        else:
+            input_tokens = input_tokens[:max_seq_len]
+
+        input_ids = torch.tensor([input_tokens], dtype=torch.long, device=device)
 
         # Generate
         with torch.no_grad():
@@ -220,12 +230,21 @@ def cmd_demo(args):
                 threshold=done_threshold
             )
 
-            # Get predicted tokens
+            # Get predicted tokens for the answer portion
             predictions = output.argmax(dim=-1)
-            predicted_text = tokenizer.decode(predictions[0], skip_special_tokens=True)
+            answer_tokens = predictions[0, question_len:question_len + answer_placeholder_len].tolist()
+
+            # Stop at EOS or PAD
+            answer_text = []
+            for tok in answer_tokens:
+                if tok == tokenizer.eos_token_id or tok == tokenizer.pad_token_id:
+                    break
+                answer_text.append(tok)
+
+            predicted_answer = tokenizer.decode(answer_text, skip_special_tokens=True)
 
         print(f"\nQuestion: {user_input}")
-        print(f"Model output: {predicted_text}")
+        print(f"Predicted answer: {predicted_answer}")
         print(f"Iterations used: {metadata['num_iterations']}")
         print(f"Done probs: {[f'{p:.2f}' for p in metadata['done_probs'][0].cpu().numpy().flatten()]}")
         print()
