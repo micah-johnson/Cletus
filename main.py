@@ -93,7 +93,7 @@ def cmd_evaluate(args):
     checkpoint = torch.load(args.checkpoint, map_location=device)
 
     config = checkpoint.get('config', {})
-    tokenizer = get_tokenizer(config.get('tokenizer_name', 'meta-llama/Llama-2-7b-hf'))
+    tokenizer = get_tokenizer(config.get('tokenizer_name', 'gpt2'))
 
     # Recreate model
     model = RecursiveTransformer(
@@ -116,7 +116,7 @@ def cmd_evaluate(args):
     # Load test data
     _, test_loader, _ = create_gsm8k_dataloaders(
         data_dir=config.get('data_dir', 'data/gsm8k'),
-        tokenizer_name=config.get('tokenizer_name', 'meta-llama/Llama-2-7b-hf'),
+        tokenizer_name=config.get('tokenizer_name', 'gpt2'),
         max_seq_len=config.get('max_seq_len', 512),
         batch_size=args.batch_size,
         num_workers=0
@@ -166,7 +166,7 @@ def cmd_demo(args):
     checkpoint = torch.load(args.checkpoint, map_location=device)
 
     config = checkpoint.get('config', {})
-    tokenizer = get_tokenizer(config.get('tokenizer_name', 'meta-llama/Llama-2-7b-hf'))
+    tokenizer = get_tokenizer(config.get('tokenizer_name', 'gpt2'))
 
     # Recreate model
     model = RecursiveTransformer(

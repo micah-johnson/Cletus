@@ -14,23 +14,15 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 
 
-def get_tokenizer(model_name: str = "meta-llama/Llama-2-7b-hf"):
+def get_tokenizer(model_name: str = "gpt2"):
     """
-    Load the Llama tokenizer.
+    Load the tokenizer.
 
-    Note: You may need to authenticate with HuggingFace to access Llama models:
-        huggingface-cli login
-
-    Or use a compatible tokenizer that doesn't require authentication.
+    Default: GPT-2 tokenizer (50257 vocab, no auth required)
     """
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-    except Exception as e:
-        # Fallback to a publicly available tokenizer with similar vocab
-        print(f"Could not load {model_name}, falling back to GPT-2 tokenizer: {e}")
-        tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    # Ensure pad token exists
+    # Ensure pad token exists (GPT-2 doesn't have one by default)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -244,7 +236,7 @@ class GSM8KDatasetSimple(Dataset):
 
 def create_gsm8k_dataloaders(
     data_dir: str = "data/gsm8k",
-    tokenizer_name: str = "meta-llama/Llama-2-7b-hf",
+    tokenizer_name: str = "gpt2",
     max_seq_len: int = 512,
     batch_size: int = 16,
     num_workers: int = 4,

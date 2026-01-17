@@ -329,7 +329,7 @@ def train_model(config: Dict) -> Tuple[RecursiveTransformer, Dict]:
     # Create dataloaders
     train_loader, test_loader, tokenizer = create_gsm8k_dataloaders(
         data_dir=config.get('data_dir', 'data/gsm8k'),
-        tokenizer_name=config.get('tokenizer_name', 'meta-llama/Llama-2-7b-hf'),
+        tokenizer_name=config.get('tokenizer_name', 'gpt2'),
         max_seq_len=config.get('max_seq_len', 512),
         batch_size=config.get('batch_size', 16),
         num_workers=config.get('num_workers', 4),
@@ -381,7 +381,7 @@ if __name__ == '__main__':
     # Default configuration
     config = {
         # Model
-        'vocab_size': 32000,
+        'vocab_size': 50257,  # GPT-2 vocab size
         'd_model': 512,
         'n_heads': 8,
         'n_layers': 6,
@@ -391,7 +391,7 @@ if __name__ == '__main__':
 
         # Data
         'data_dir': 'data/gsm8k',
-        'tokenizer_name': 'meta-llama/Llama-2-7b-hf',
+        'tokenizer_name': 'gpt2',
         'max_seq_len': 512,
         'batch_size': 16,
         'num_workers': 4,

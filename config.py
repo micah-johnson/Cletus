@@ -7,14 +7,14 @@ from typing import Optional, List
 import json
 
 
-# Llama tokenizer vocab size
-LLAMA_VOCAB_SIZE = 32000
+# GPT-2 tokenizer vocab size
+GPT2_VOCAB_SIZE = 50257
 
 
 @dataclass
 class ModelConfig:
     """Model architecture configuration."""
-    vocab_size: int = LLAMA_VOCAB_SIZE  # Llama tokenizer vocab
+    vocab_size: int = GPT2_VOCAB_SIZE  # GPT-2 tokenizer vocab
     d_model: int = 512
     n_heads: int = 8
     n_layers: int = 6
@@ -28,7 +28,7 @@ class ModelConfig:
 class DataConfig:
     """Dataset configuration."""
     data_dir: str = "data/gsm8k"
-    tokenizer_name: str = "meta-llama/Llama-2-7b-hf"
+    tokenizer_name: str = "gpt2"
     max_seq_len: int = 512
     batch_size: int = 16
     num_workers: int = 4
@@ -165,9 +165,9 @@ class ExperimentConfig:
 # Tiny config for quick testing (~1M params)
 TINY_CONFIG = ExperimentConfig(
     model=ModelConfig(
-        d_model=256,
+        d_model=128,
         n_heads=4,
-        n_layers=4,
+        n_layers=3,
         d_ff=512,
         max_iterations=4,
         max_seq_len=256
@@ -178,7 +178,7 @@ TINY_CONFIG = ExperimentConfig(
     ),
     train=TrainConfig(
         epochs=10,
-        log_interval=5,
+        log_interval=1,
     ),
     name='tiny'
 )
@@ -271,7 +271,7 @@ def get_config(name: str) -> ExperimentConfig:
 @dataclass
 class BaselineModelConfig:
     """Baseline model architecture (no recursion)."""
-    vocab_size: int = LLAMA_VOCAB_SIZE
+    vocab_size: int = GPT2_VOCAB_SIZE
     d_model: int = 512
     n_heads: int = 8
     n_layers: int = 6
@@ -352,7 +352,7 @@ def get_baseline_config(name: str) -> BaselineConfig:
 @dataclass
 class StandardModelConfig:
     """Standard transformer (no recursion, no weight tying)."""
-    vocab_size: int = LLAMA_VOCAB_SIZE
+    vocab_size: int = GPT2_VOCAB_SIZE
     d_model: int = 512
     n_heads: int = 8
     n_layers: int = 12
