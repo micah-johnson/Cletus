@@ -151,8 +151,7 @@ class RecursiveTransformerLayer(nn.Module):
         x_norm = self.norm1(x)
         attn_out, _ = self.self_attn(
             x_norm, x_norm, x_norm,
-            attn_mask=attn_mask,
-            is_causal=attn_mask is None  # Use PyTorch's efficient causal attention
+            attn_mask=attn_mask
         )
         x = residual + self.dropout(attn_out)
 
@@ -497,7 +496,7 @@ class StandardTransformerLayer(nn.Module):
     def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         residual = x
         x_norm = self.norm1(x)
-        attn_out, _ = self.self_attn(x_norm, x_norm, x_norm, attn_mask=attn_mask, is_causal=attn_mask is None)
+        attn_out, _ = self.self_attn(x_norm, x_norm, x_norm, attn_mask=attn_mask)
         x = residual + self.dropout(attn_out)
 
         residual = x

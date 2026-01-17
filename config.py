@@ -168,7 +168,7 @@ TINY_CONFIG = ExperimentConfig(
         d_model=128,
         n_heads=4,
         n_layers=3,
-        d_ff=512,
+        d_ff=256,
         max_iterations=4,
         max_seq_len=256
     ),
