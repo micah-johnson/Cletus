@@ -190,7 +190,7 @@ SMALL_CONFIG = ExperimentConfig(
         n_heads=8,
         n_layers=6,
         d_ff=2048,
-        max_iterations=6,
+        max_iterations=8,
         max_seq_len=512
     ),
     data=DataConfig(
@@ -199,6 +199,7 @@ SMALL_CONFIG = ExperimentConfig(
     ),
     train=TrainConfig(
         epochs=30,
+        learning_rate=1.5e-4,
         log_interval=5,
     ),
     name='small'
