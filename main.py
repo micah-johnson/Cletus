@@ -4,6 +4,8 @@ Recursive Transformer Experiment - Main Entry Point
 A transformer that can "think again" by attending to its previous hidden states,
 with a learned classifier that decides when it's done thinking.
 
+Now configured for GSM8K math word problems with Llama tokenizer.
+
 Usage:
     python main.py train --config small
     python main.py train --config tiny --epochs 10
@@ -22,9 +24,8 @@ import torch
 
 from config import get_config, ExperimentConfig, DEFAULT_CURRICULUM
 from model import RecursiveTransformer
-from dataset import create_dataloaders, ArithmeticTokenizer, generate_nested_arithmetic
+from dataset import create_gsm8k_dataloaders, get_tokenizer
 from train import Trainer, train_model
-from evaluate import RecursiveTransformerAnalyzer, run_full_evaluation
 
 
 def set_seed(seed: int):
@@ -59,12 +60,12 @@ def cmd_train(args):
     set_seed(config.seed)
 
     print("=" * 60)
-    print("RECURSIVE TRANSFORMER EXPERIMENT")
+    print("RECURSIVE TRANSFORMER - GSM8K")
     print("=" * 60)
     print(f"Config: {config.name}")
     print(f"Model: d={config.model.d_model}, h={config.model.n_heads}, "
           f"L={config.model.n_layers}, max_iter={config.model.max_iterations}")
-    print(f"Data: {config.data.train_samples} train, depth={config.data.max_depth}")
+    print(f"Data: {config.data.data_dir}, batch_size={config.data.batch_size}")
     print(f"Training: {config.train.epochs} epochs, lr={config.train.learning_rate}")
     if config.train.curriculum:
         print(f"Curriculum: {config.train.curriculum}")
@@ -74,6 +75,7 @@ def cmd_train(args):
     model, history = train_model(config.to_dict())
 
     # Save config
+    os.makedirs(config.train.save_dir, exist_ok=True)
     config.save(os.path.join(config.train.save_dir, 'config.json'))
 
     print("\nTraining complete!")
@@ -91,47 +93,68 @@ def cmd_evaluate(args):
     checkpoint = torch.load(args.checkpoint, map_location=device)
 
     config = checkpoint.get('config', {})
-    tokenizer = ArithmeticTokenizer()
+    tokenizer = get_tokenizer(config.get('tokenizer_name', 'meta-llama/Llama-2-7b-hf'))
 
     # Recreate model
     model = RecursiveTransformer(
-        vocab_size=tokenizer.vocab_size,
-        d_model=config.get('d_model', 128),
-        n_heads=config.get('n_heads', 4),
-        n_layers=config.get('n_layers', 3),
-        d_ff=config.get('d_ff', 256),
-        max_iterations=config.get('max_iterations', 6),
+        vocab_size=config.get('vocab_size', tokenizer.vocab_size),
+        d_model=config.get('d_model', 512),
+        n_heads=config.get('n_heads', 8),
+        n_layers=config.get('n_layers', 6),
+        d_ff=config.get('d_ff', 2048),
+        max_iterations=config.get('max_iterations', 8),
         dropout=0.0,  # No dropout for evaluation
-        max_seq_len=config.get('max_seq_len', 64)
+        max_seq_len=config.get('max_seq_len', 512)
     )
 
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
     model.eval()
 
-    print(f"Model loaded. Running evaluation...")
+    print(f"Model loaded with {sum(p.numel() for p in model.parameters()):,} parameters")
 
-    # Run evaluation
-    results = run_full_evaluation(
-        model=model,
-        tokenizer=tokenizer,
-        test_samples=args.test_samples,
-        max_depth=config.get('max_depth', 4),
-        output_dir=args.output_dir,
-        device=device,
-        max_seq_len=config.get('max_seq_len', 64)
+    # Load test data
+    _, test_loader, _ = create_gsm8k_dataloaders(
+        data_dir=config.get('data_dir', 'data/gsm8k'),
+        tokenizer_name=config.get('tokenizer_name', 'meta-llama/Llama-2-7b-hf'),
+        max_seq_len=config.get('max_seq_len', 512),
+        batch_size=args.batch_size,
+        num_workers=0
     )
 
-    # Plot training history if available
-    if 'history' in checkpoint:
-        from evaluate import RecursiveTransformerAnalyzer
-        analyzer = RecursiveTransformerAnalyzer(model, tokenizer, device)
-        analyzer.visualize_training_history(
-            checkpoint['history'],
-            save_path=os.path.join(args.output_dir, 'training_history.png')
-        )
+    # Evaluate
+    correct = 0
+    total = 0
+    total_iterations = 0
 
-    return results
+    print("\nEvaluating...")
+    with torch.no_grad():
+        for batch in test_loader:
+            input_ids = batch['input_ids'].to(device)
+            target_ids = batch['target_ids'].to(device)
+
+            output, metadata = model(
+                input_ids,
+                threshold=config.get('done_threshold', 0.7)
+            )
+
+            # Check predictions (simplified - just check if output matches target)
+            predictions = output.argmax(dim=-1)
+            mask = (target_ids != -100)
+            batch_correct = ((predictions == target_ids) | ~mask).all(dim=-1).sum().item()
+
+            correct += batch_correct
+            total += input_ids.size(0)
+            total_iterations += metadata['num_iterations'] * input_ids.size(0)
+
+    accuracy = correct / total if total > 0 else 0
+    avg_iterations = total_iterations / total if total > 0 else 0
+
+    print(f"\nResults:")
+    print(f"  Accuracy: {accuracy:.2%} ({correct}/{total})")
+    print(f"  Avg iterations: {avg_iterations:.2f}")
+
+    return {'accuracy': accuracy, 'avg_iterations': avg_iterations}
 
 
 def cmd_demo(args):
@@ -143,41 +166,36 @@ def cmd_demo(args):
     checkpoint = torch.load(args.checkpoint, map_location=device)
 
     config = checkpoint.get('config', {})
-    tokenizer = ArithmeticTokenizer()
+    tokenizer = get_tokenizer(config.get('tokenizer_name', 'meta-llama/Llama-2-7b-hf'))
 
     # Recreate model
     model = RecursiveTransformer(
-        vocab_size=tokenizer.vocab_size,
-        d_model=config.get('d_model', 128),
-        n_heads=config.get('n_heads', 4),
-        n_layers=config.get('n_layers', 3),
-        d_ff=config.get('d_ff', 256),
-        max_iterations=config.get('max_iterations', 6),
+        vocab_size=config.get('vocab_size', tokenizer.vocab_size),
+        d_model=config.get('d_model', 512),
+        n_heads=config.get('n_heads', 8),
+        n_layers=config.get('n_layers', 6),
+        d_ff=config.get('d_ff', 2048),
+        max_iterations=config.get('max_iterations', 8),
         dropout=0.0,
-        max_seq_len=config.get('max_seq_len', 64)
+        max_seq_len=config.get('max_seq_len', 512)
     )
 
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
     model.eval()
 
-    analyzer = RecursiveTransformerAnalyzer(model, tokenizer, device)
-    max_seq_len = config.get('max_seq_len', 64)
+    max_seq_len = config.get('max_seq_len', 512)
     done_threshold = config.get('done_threshold', 0.7)
 
-    print(checkpoint.get('config', {}))
-
     print("\n" + "=" * 60)
-    print("RECURSIVE TRANSFORMER DEMO")
+    print("RECURSIVE TRANSFORMER DEMO - GSM8K")
     print("=" * 60)
-    print("Enter arithmetic expressions or commands:")
-    print("  'random N' - Generate random expression of depth N")
-    print("  'quit' - Exit")
+    print("Enter a math word problem (or 'quit' to exit):")
     print("=" * 60 + "\n")
 
     while True:
         try:
-            user_input = input("Expression > ").strip()
+            user_input = input("Question > ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\nGoodbye!")
             break
@@ -189,63 +207,33 @@ def cmd_demo(args):
             print("Goodbye!")
             break
 
-        if user_input.lower().startswith('random'):
-            try:
-                depth = int(user_input.split()[1])
-            except (IndexError, ValueError):
-                depth = 3
-            sample = generate_nested_arithmetic(max_depth=6, target_depth=depth)
-            expression = sample['expression']
-            expected = sample['result']
-            print(f"Generated: {expression}")
-        else:
-            expression = user_input
-            try:
-                expected = eval(expression)
-            except:
-                expected = "?"
+        # Tokenize input
+        input_text = f"{user_input}"
+        tokens = tokenizer.encode(input_text, add_special_tokens=True, max_length=max_seq_len, truncation=True)
+        tokens = tokens + [tokenizer.pad_token_id] * (max_seq_len - len(tokens))
+        input_ids = torch.tensor([tokens], dtype=torch.long, device=device)
 
-        # Analyze with threshold-based early stopping
-        analysis = analyzer.analyze_single_sample(
-            expression, expected,
-            max_seq_len=max_seq_len,
-            threshold=done_threshold
-        )
+        # Generate
+        with torch.no_grad():
+            output, metadata = model(
+                input_ids,
+                threshold=done_threshold
+            )
 
-        # Check correctness
-        try:
-            is_correct = (int(analysis['predicted_result']) == expected)
-            status = "CORRECT" if is_correct else "WRONG"
-        except:
-            status = "WRONG"
+            # Get predicted tokens
+            predictions = output.argmax(dim=-1)
+            predicted_text = tokenizer.decode(predictions[0], skip_special_tokens=True)
 
-        print(f"\nExpression: {expression}")
-        print(f"Expected:   {expected}")
-        print(f"Predicted:  {analysis['predicted_result']} [{status}]")
-        print(f"Iterations: {analysis['num_iterations']}")
-        print(f"Done probs: {[f'{p:.2f}' for p in analysis['done_probs'].flatten()]}")
+        print(f"\nQuestion: {user_input}")
+        print(f"Model output: {predicted_text}")
+        print(f"Iterations used: {metadata['num_iterations']}")
+        print(f"Done probs: {[f'{p:.2f}' for p in metadata['done_probs'][0].cpu().numpy().flatten()]}")
         print()
-
-
-def cmd_sample(args):
-    """Show sample expressions from the dataset."""
-    print("\nSample Expressions by Depth:")
-    print("-" * 60)
-
-    for depth in range(1, args.max_depth + 1):
-        print(f"\nDepth {depth}:")
-        for i in range(3):
-            sample = generate_nested_arithmetic(max_depth=args.max_depth, target_depth=depth)
-            result = sample['result']
-            expr = sample['expression']
-            print(f"  {expr} = {result}")
-
-    print("-" * 60)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Recursive Transformer Experiment',
+        description='Recursive Transformer Experiment - GSM8K',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
@@ -268,20 +256,13 @@ def main():
     eval_parser = subparsers.add_parser('evaluate', help='Evaluate a trained model')
     eval_parser.add_argument('--checkpoint', type=str, required=True,
                              help='Path to model checkpoint')
-    eval_parser.add_argument('--test-samples', type=int, default=500,
-                             help='Number of test samples')
-    eval_parser.add_argument('--output-dir', type=str, default='results',
-                             help='Output directory for results')
+    eval_parser.add_argument('--batch-size', type=int, default=16,
+                             help='Batch size for evaluation')
 
     # Demo command
     demo_parser = subparsers.add_parser('demo', help='Interactive demo')
     demo_parser.add_argument('--checkpoint', type=str, required=True,
                              help='Path to model checkpoint')
-
-    # Sample command
-    sample_parser = subparsers.add_parser('sample', help='Show sample expressions')
-    sample_parser.add_argument('--max-depth', type=int, default=4,
-                               help='Maximum expression depth')
 
     args = parser.parse_args()
 
@@ -291,8 +272,6 @@ def main():
         cmd_evaluate(args)
     elif args.command == 'demo':
         cmd_demo(args)
-    elif args.command == 'sample':
-        cmd_sample(args)
     else:
         parser.print_help()
         sys.exit(1)

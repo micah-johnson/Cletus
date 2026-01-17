@@ -1,5 +1,5 @@
 """
-Training loop for Recursive Transformer.
+Training loop for Recursive Transformer on GSM8K.
 """
 
 import os
@@ -16,7 +16,7 @@ from torch.amp import autocast
 from torch.amp import GradScaler
 
 from model import RecursiveTransformer, compute_loss
-from dataset import create_dataloaders, ArithmeticTokenizer
+from dataset import create_gsm8k_dataloaders, get_tokenizer
 
 
 class Trainer:
@@ -25,7 +25,7 @@ class Trainer:
     def __init__(
         self,
         model: RecursiveTransformer,
-        tokenizer: ArithmeticTokenizer,
+        tokenizer,
         train_loader: DataLoader,
         val_loader: DataLoader,
         config: Dict,
@@ -65,29 +65,21 @@ class Trainer:
         self.history = defaultdict(list)
 
         # Curriculum: max_iterations schedule by epoch
-        # None = use model's default max_iterations (no curriculum)
         self.curriculum = config.get('curriculum', None)
-        self.current_max_iters = None  # Set during training
+        self.current_max_iters = None
 
     def get_curriculum_max_iters(self, epoch: int) -> int:
         """Get max_iterations for current epoch based on curriculum schedule."""
         if self.curriculum is None:
             return self.model.max_iterations
 
-        # Curriculum format: [(epoch_threshold, max_iters), ...]
-        # e.g., [(25, 2), (50, 3), (75, 4), (None, 6)]
         for threshold, max_iters in self.curriculum:
             if threshold is None or epoch < threshold:
                 return max_iters
         return self.model.max_iterations
 
     def train_epoch(self, max_iters: int = None, random_max_iters: bool = True) -> Dict:
-        """Run one training epoch.
-
-        Args:
-            max_iters: If set, limit iterations via force_iterations (for curriculum)
-            random_max_iters: If True, randomize max_iterations per batch (1 to max_iters)
-        """
+        """Run one training epoch."""
         self.model.train()
 
         epoch_loss = 0.0
@@ -95,20 +87,22 @@ class Trainer:
         num_batches = 0
         total_iterations = 0
 
-        # Determine effective max_iters
         effective_max_iters = max_iters if max_iters is not None else self.model.max_iterations
 
         for batch in self.train_loader:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
 
-            # Randomize max_iterations per batch to prevent iteration-dependent strategies
+            # Randomize max_iterations per batch
             if random_max_iters:
                 batch_max_iters = random.randint(1, effective_max_iters)
             else:
                 batch_max_iters = effective_max_iters
 
             self.optimizer.zero_grad()
+
+            # Use -100 as ignore index (standard for HuggingFace)
+            pad_token_id = -100
 
             if self.use_amp:
                 with autocast('cuda', dtype=torch.bfloat16):
@@ -117,7 +111,7 @@ class Trainer:
                         output, target_ids, metadata,
                         iteration_cost=self.iteration_cost,
                         done_supervision_weight=self.done_supervision_weight,
-                        pad_token_id=self.tokenizer.pad_token_id
+                        pad_token_id=pad_token_id
                     )
 
                 self.scaler.scale(loss).backward()
@@ -131,7 +125,7 @@ class Trainer:
                     output, target_ids, metadata,
                     iteration_cost=self.iteration_cost,
                     done_supervision_weight=self.done_supervision_weight,
-                    pad_token_id=self.tokenizer.pad_token_id
+                    pad_token_id=pad_token_id
                 )
 
                 loss.backward()
@@ -141,7 +135,6 @@ class Trainer:
             epoch_loss += loss.item()
             total_iterations += metadata['num_iterations']
             for k, v in metrics.items():
-                # Skip list metrics (like per_iter_accuracy)
                 if isinstance(v, (int, float)):
                     epoch_metrics[k] += v
             num_batches += 1
@@ -151,19 +144,13 @@ class Trainer:
         for k in epoch_metrics:
             epoch_metrics[k] /= num_batches
 
-        # Add average iterations during training
         epoch_metrics['avg_iterations'] = total_iterations / num_batches
 
         return {'loss': epoch_loss, **epoch_metrics}
 
     @torch.no_grad()
     def validate(self, loader: Optional[DataLoader] = None, max_iters: int = None) -> Dict:
-        """Run validation.
-
-        Args:
-            loader: DataLoader to use (defaults to val_loader)
-            max_iters: If set, cap iterations (for curriculum) but allow early stopping
-        """
+        """Run validation."""
         self.model.eval()
         loader = loader or self.val_loader
 
@@ -171,24 +158,20 @@ class Trainer:
         total_metrics = defaultdict(float)
         num_batches = 0
 
-        # Track iterations and accuracy by depth
-        depth_iterations = defaultdict(list)
-        depth_correct = defaultdict(int)
-        depth_total = defaultdict(int)
         correct_predictions = 0
         total_predictions = 0
+        total_iterations_used = 0
 
-        # Temporarily cap model's max_iterations for curriculum (allows early stopping)
         original_max_iters = self.model.max_iterations
         if max_iters is not None:
             self.model.max_iterations = max_iters
 
+        pad_token_id = -100
+
         for batch in loader:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
-            depths = batch['depth']
 
-            # Use threshold-based stopping (no force_iterations)
             output, metadata = self.model(
                 input_ids,
                 threshold=self.config.get('done_threshold', 0.7)
@@ -197,65 +180,38 @@ class Trainer:
                 output, target_ids, metadata,
                 iteration_cost=self.iteration_cost,
                 done_supervision_weight=self.done_supervision_weight,
-                pad_token_id=self.tokenizer.pad_token_id
+                pad_token_id=pad_token_id
             )
 
             total_loss += loss.item()
+            total_iterations_used += metadata['num_iterations'] * input_ids.size(0)
+
             for k, v in metrics.items():
-                # Skip list metrics (like per_iter_accuracy)
                 if isinstance(v, (int, float)):
                     total_metrics[k] += v
             num_batches += 1
 
-            # Track iterations per depth
-            for i, d in enumerate(depths.tolist()):
-                depth_iterations[d].append(metadata['num_iterations'])
-
-            # Check prediction accuracy per sample and track by depth
+            # Check prediction accuracy
             predictions = output.argmax(dim=-1)
-            for i in range(len(input_ids)):
-                pred_tokens = predictions[i].tolist()
-                target_tokens = target_ids[i].tolist()
-                d = depths[i].item()
-
-                # Check if all non-pad tokens match
-                matches = sum(1 for p, t in zip(pred_tokens, target_tokens)
-                             if t != self.tokenizer.pad_token_id and p == t)
-                total_valid = sum(1 for t in target_tokens if t != self.tokenizer.pad_token_id)
-
-                is_correct = (matches == total_valid)
-                if is_correct:
-                    correct_predictions += 1
-                    depth_correct[d] += 1
-                depth_total[d] += 1
-                total_predictions += 1
+            mask = (target_ids != pad_token_id)
+            batch_correct = ((predictions == target_ids) | ~mask).all(dim=-1).sum().item()
+            correct_predictions += batch_correct
+            total_predictions += input_ids.size(0)
 
         # Average metrics
         total_loss /= num_batches
         for k in total_metrics:
             total_metrics[k] /= num_batches
 
-        # Compute depth stats (iterations + accuracy)
-        depth_stats = {}
-        for depth in sorted(set(depth_iterations.keys()) | set(depth_total.keys())):
-            iters = depth_iterations.get(depth, [])
-            correct = depth_correct.get(depth, 0)
-            total = depth_total.get(depth, 1)
-            depth_stats[depth] = {
-                'mean_iterations': sum(iters) / len(iters) if iters else 0,
-                'accuracy': correct / total if total > 0 else 0,
-                'count': total
-            }
-
         accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0.0
+        avg_iterations = total_iterations_used / total_predictions if total_predictions > 0 else 0.0
 
-        # Restore original max_iterations
         self.model.max_iterations = original_max_iters
 
         return {
             'loss': total_loss,
             'accuracy': accuracy,
-            'depth_stats': depth_stats,
+            'avg_iterations': avg_iterations,
             **total_metrics
         }
 
@@ -278,25 +234,19 @@ class Trainer:
         for epoch in range(epochs):
             start_time = time.time()
 
-            # Get curriculum max_iters for this epoch
             max_iters = self.get_curriculum_max_iters(epoch)
             self.current_max_iters = max_iters
 
-            # Train with curriculum-limited iterations
             train_metrics = self.train_epoch(max_iters=max_iters)
-
-            # Validate with same iteration limit
             val_metrics = self.validate(max_iters=max_iters)
 
-            # Step scheduler
             self.scheduler.step()
 
             # Record history
             for k, v in train_metrics.items():
                 self.history[f'train_{k}'].append(v)
             for k, v in val_metrics.items():
-                if k != 'depth_stats':
-                    self.history[f'val_{k}'].append(v)
+                self.history[f'val_{k}'].append(v)
 
             epoch_time = time.time() - start_time
 
@@ -310,12 +260,8 @@ class Trainer:
                       f"Avg Iters: {train_metrics.get('avg_iterations', 0):.2f}")
                 print(f"  Val Loss: {val_metrics['loss']:.4f} | "
                       f"Acc: {val_metrics['accuracy']:.2%} | "
+                      f"Avg Iters: {val_metrics.get('avg_iterations', 0):.2f} | "
                       f"Done prob: {val_metrics.get('mean_done_prob', 0):.3f}")
-
-                # Print depth -> iterations and accuracy
-                print("  Depth -> Iters | Accuracy:")
-                for depth, stats in sorted(val_metrics['depth_stats'].items()):
-                    print(f"    {depth}: {stats['mean_iterations']:.2f} iters | {stats['accuracy']:.1%} ({stats['count']} samples)")
 
                 # Print gate values
                 gates = self.model.get_gate_values()
@@ -360,7 +306,7 @@ class Trainer:
 
 def train_model(config: Dict) -> Tuple[RecursiveTransformer, Dict]:
     """
-    Main training function.
+    Main training function for GSM8K.
 
     Args:
         config: Training configuration dict
@@ -368,7 +314,7 @@ def train_model(config: Dict) -> Tuple[RecursiveTransformer, Dict]:
     Returns:
         Trained model and training history
     """
-    # Device detection with diagnostics
+    # Device detection
     print(f"PyTorch version: {torch.__version__}")
     print(f"CUDA available: {torch.cuda.is_available()}")
     if torch.cuda.is_available():
@@ -377,38 +323,39 @@ def train_model(config: Dict) -> Tuple[RecursiveTransformer, Dict]:
         device = 'cuda'
     else:
         print("WARNING: CUDA not available! Training on CPU (slow)")
-        print("To fix: pip install torch --index-url https://download.pytorch.org/whl/cu121")
         device = 'cpu'
     print(f"Using device: {device}")
 
     # Create dataloaders
-    train_loader, val_loader, test_loader, tokenizer = create_dataloaders(
-        train_samples=config.get('train_samples', 10000),
-        val_samples=config.get('val_samples', 1000),
-        test_samples=config.get('test_samples', 1000),
-        max_depth=config.get('max_depth', 4),
-        max_seq_len=config.get('max_seq_len', 64),
-        batch_size=config.get('batch_size', 32)
+    train_loader, test_loader, tokenizer = create_gsm8k_dataloaders(
+        data_dir=config.get('data_dir', 'data/gsm8k'),
+        tokenizer_name=config.get('tokenizer_name', 'meta-llama/Llama-2-7b-hf'),
+        max_seq_len=config.get('max_seq_len', 512),
+        batch_size=config.get('batch_size', 16),
+        num_workers=config.get('num_workers', 4),
+        simple_mode=config.get('simple_mode', True)
     )
 
     # Create model
     model = RecursiveTransformer(
-        vocab_size=tokenizer.vocab_size,
-        d_model=config.get('d_model', 128),
-        n_heads=config.get('n_heads', 4),
-        n_layers=config.get('n_layers', 3),
-        d_ff=config.get('d_ff', 256),
-        max_iterations=config.get('max_iterations', 6),
+        vocab_size=config.get('vocab_size', tokenizer.vocab_size),
+        d_model=config.get('d_model', 512),
+        n_heads=config.get('n_heads', 8),
+        n_layers=config.get('n_layers', 6),
+        d_ff=config.get('d_ff', 2048),
+        max_iterations=config.get('max_iterations', 8),
         dropout=config.get('dropout', 0.1),
-        max_seq_len=config.get('max_seq_len', 64)
+        max_seq_len=config.get('max_seq_len', 512)
     )
 
-    # Create trainer
+    print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+    # Create trainer (use test_loader as val_loader for now)
     trainer = Trainer(
         model=model,
         tokenizer=tokenizer,
         train_loader=train_loader,
-        val_loader=val_loader,
+        val_loader=test_loader,  # Use test as validation
         config=config,
         device=device
     )
@@ -417,7 +364,7 @@ def train_model(config: Dict) -> Tuple[RecursiveTransformer, Dict]:
     history = trainer.train(
         epochs=config.get('epochs', 50),
         save_dir=config.get('save_dir', 'checkpoints'),
-        log_interval=config.get('log_interval', 5)
+        log_interval=config.get('log_interval', 10)
     )
 
     # Final test evaluation
@@ -425,9 +372,7 @@ def train_model(config: Dict) -> Tuple[RecursiveTransformer, Dict]:
     test_metrics = trainer.validate(test_loader)
     print(f"Test Loss: {test_metrics['loss']:.4f}")
     print(f"Test Accuracy: {test_metrics['accuracy']:.2%}")
-    print("Depth -> Iters | Accuracy:")
-    for depth, stats in sorted(test_metrics['depth_stats'].items()):
-        print(f"  {depth}: {stats['mean_iterations']:.2f} iters | {stats['accuracy']:.1%}")
+    print(f"Avg Iterations: {test_metrics.get('avg_iterations', 0):.2f}")
 
     return model, history
 
@@ -436,30 +381,31 @@ if __name__ == '__main__':
     # Default configuration
     config = {
         # Model
-        'd_model': 128,
-        'n_heads': 4,
-        'n_layers': 3,
-        'd_ff': 256,
-        'max_iterations': 6,
+        'vocab_size': 32000,
+        'd_model': 512,
+        'n_heads': 8,
+        'n_layers': 6,
+        'd_ff': 2048,
+        'max_iterations': 8,
         'dropout': 0.1,
 
         # Data
-        'train_samples': 10000,
-        'val_samples': 1000,
-        'test_samples': 1000,
-        'max_depth': 4,
-        'max_seq_len': 64,
-        'batch_size': 32,
+        'data_dir': 'data/gsm8k',
+        'tokenizer_name': 'meta-llama/Llama-2-7b-hf',
+        'max_seq_len': 512,
+        'batch_size': 16,
+        'num_workers': 4,
+        'simple_mode': True,
 
         # Training
-        'epochs': 50,
+        'epochs': 30,
         'learning_rate': 3e-4,
         'weight_decay': 0.01,
         'min_lr': 1e-6,
         'iteration_cost': 0.01,
         'done_supervision_weight': 0.5,
         'done_threshold': 0.7,
-        'use_amp': False,
+        'use_amp': True,
 
         # Misc
         'save_dir': 'checkpoints',

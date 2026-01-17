@@ -173,13 +173,12 @@ TINY_CONFIG = ExperimentConfig(
         max_seq_len=256
     ),
     data=DataConfig(
-        batch_size=32,
+        batch_size=512,
         max_seq_len=256
     ),
     train=TrainConfig(
         epochs=10,
         log_interval=5,
-        curriculum=[(5, 2), (None, 4)]
     ),
     name='tiny'
 )
@@ -200,8 +199,7 @@ SMALL_CONFIG = ExperimentConfig(
     ),
     train=TrainConfig(
         epochs=30,
-        log_interval=10,
-        curriculum=[(10, 2), (20, 4), (None, 6)]
+        log_interval=5,
     ),
     name='small'
 )
@@ -223,8 +221,7 @@ MEDIUM_CONFIG = ExperimentConfig(
     train=TrainConfig(
         epochs=50,
         learning_rate=1e-4,
-        log_interval=20,
-        curriculum=[(15, 2), (30, 4), (40, 6), (None, 8)]
+        log_interval=5,
     ),
     name='medium'
 )
@@ -246,8 +243,7 @@ LARGE_CONFIG = ExperimentConfig(
     train=TrainConfig(
         epochs=100,
         learning_rate=5e-5,
-        log_interval=50,
-        curriculum=[(25, 2), (50, 4), (75, 6), (None, 8)]
+        log_interval=5,
     ),
     name='large'
 )
