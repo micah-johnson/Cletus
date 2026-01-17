@@ -194,7 +194,7 @@ SMALL_CONFIG = ExperimentConfig(
         max_seq_len=512
     ),
     data=DataConfig(
-        batch_size=16,
+        batch_size=64,
         max_seq_len=512
     ),
     train=TrainConfig(
@@ -216,7 +216,7 @@ MEDIUM_CONFIG = ExperimentConfig(
         max_seq_len=512
     ),
     data=DataConfig(
-        batch_size=8,
+        batch_size=32,
         max_seq_len=512
     ),
     train=TrainConfig(
@@ -238,7 +238,7 @@ LARGE_CONFIG = ExperimentConfig(
         max_seq_len=512
     ),
     data=DataConfig(
-        batch_size=4,
+        batch_size=16,
         max_seq_len=512
     ),
     train=TrainConfig(
