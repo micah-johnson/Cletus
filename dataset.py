@@ -185,7 +185,12 @@ class GSM8KDatasetSimple(Dataset):
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         sample = self.data[idx]
         question = sample['question']
-        answer = str(sample['answer'])
+        raw_answer = str(sample['answer'])
+
+        # Add "The answer is" prefix for better adaptive compute signal
+        # Easy tokens: "The", "answer", "is" - should need 1 iteration
+        # Hard token: the actual number - should need more iterations
+        answer = f"The answer is {raw_answer}"
 
         # Encode question
         question_tokens = self.tokenizer.encode(
