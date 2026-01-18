@@ -28,10 +28,10 @@ class ModelConfig:
 @dataclass
 class DataConfig:
     """Dataset configuration."""
-    data_dir: str = "data/arithmetic"
+    data_dir: str = "data/gsm8k"
     tokenizer_name: str = "gpt2"
-    max_seq_len: int = 128
-    batch_size: int = 64
+    max_seq_len: int = 256  # GSM8K questions are longer
+    batch_size: int = 32
     num_workers: int = 4
     simple_mode: bool = True
 
@@ -184,7 +184,7 @@ TINY_CONFIG = ExperimentConfig(
     name='tiny'
 )
 
-# Small config (~10M params)
+# Small config (~10M params) - GSM8K
 SMALL_CONFIG = ExperimentConfig(
     model=ModelConfig(
         d_model=512,
@@ -192,11 +192,12 @@ SMALL_CONFIG = ExperimentConfig(
         n_layers=6,
         d_ff=2048,
         max_iterations=8,
-        max_seq_len=512
+        max_seq_len=256
     ),
     data=DataConfig(
-        batch_size=48,
-        max_seq_len=512
+        data_dir='data/gsm8k',
+        batch_size=32,
+        max_seq_len=256
     ),
     train=TrainConfig(
         epochs=100,
@@ -221,7 +222,7 @@ MEDIUM_CONFIG = ExperimentConfig(
         max_seq_len=512
     ),
     train=TrainConfig(
-        epochs=50,
+        epochs=100,
         learning_rate=1e-4,
         log_interval=5,
     ),
