@@ -307,9 +307,12 @@ class RecursiveTransformer(nn.Module):
         x = self.embedding(input_ids) * math.sqrt(self.d_model)
         x = x + self.pos_embedding(positions)
 
-        # Create causal mask if not provided
-        # For autoregressive generation, we need causal masking
-        causal_mask = None  # Let PyTorch handle causal attention with is_causal=True
+        # Create causal mask - prevent attending to future tokens
+        # For nn.MultiheadAttention, True = DO NOT attend, so upper triangle = True
+        causal_mask = torch.triu(
+            torch.ones(seq_len, seq_len, device=device, dtype=torch.bool),
+            diagonal=1
+        )
 
         all_hidden_states = []
         done_logits = []
@@ -562,9 +565,15 @@ class StandardWeightTiedTransformer(nn.Module):
         x = self.embedding(input_ids) * math.sqrt(self.d_model)
         x = x + self.pos_embedding(positions)
 
+        # Causal mask - prevent attending to future tokens
+        causal_mask = torch.triu(
+            torch.ones(seq_len, seq_len, device=device, dtype=torch.bool),
+            diagonal=1
+        )
+
         for repeat in range(self.n_repeats):
             for layer in self.layers:
-                x = layer(x)
+                x = layer(x, attn_mask=causal_mask)
 
         output = self.output_head(self.output_norm(x))
 
@@ -661,8 +670,14 @@ class StandardTransformer(nn.Module):
         x = self.embedding(input_ids) * math.sqrt(self.d_model)
         x = x + self.pos_embedding(positions)
 
+        # Causal mask - prevent attending to future tokens
+        causal_mask = torch.triu(
+            torch.ones(seq_len, seq_len, device=device, dtype=torch.bool),
+            diagonal=1
+        )
+
         for layer in self.layers:
-            x = layer(x)
+            x = layer(x, attn_mask=causal_mask)
 
         output = self.output_head(self.output_norm(x))
 
