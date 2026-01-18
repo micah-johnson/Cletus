@@ -69,10 +69,12 @@ def cmd_train(args):
     print(f"Training: {config.train.epochs} epochs, lr={config.train.learning_rate}")
     if config.train.curriculum:
         print(f"Curriculum: {config.train.curriculum}")
+    if args.resume:
+        print(f"Resuming from: {args.resume}")
     print("=" * 60 + "\n")
 
     # Train
-    model, history = train_model(config.to_dict())
+    model, history = train_model(config.to_dict(), resume_from=args.resume)
 
     # Save config
     os.makedirs(config.train.save_dir, exist_ok=True)
@@ -270,6 +272,8 @@ def main():
     train_parser.add_argument('--iteration-cost', type=float, help='Override iteration cost')
     train_parser.add_argument('--curriculum', action='store_true',
                               help='Enable curriculum learning (gradually unlock iterations)')
+    train_parser.add_argument('--resume', type=str, default=None,
+                              help='Path to checkpoint to resume training from')
 
     # Evaluate command
     eval_parser = subparsers.add_parser('evaluate', help='Evaluate a trained model')

@@ -219,19 +219,23 @@ class Trainer:
         self,
         epochs: int,
         save_dir: str = 'checkpoints',
-        log_interval: int = 10
+        log_interval: int = 10,
+        start_epoch: int = 0
     ) -> Dict:
         """Full training loop."""
         os.makedirs(save_dir, exist_ok=True)
 
-        print(f"Starting training for {epochs} epochs...")
+        if start_epoch > 0:
+            print(f"Resuming training from epoch {start_epoch + 1}...")
+        else:
+            print(f"Starting training for {epochs} epochs...")
         print(f"Device: {self.device}")
         print(f"Model parameters: {sum(p.numel() for p in self.model.parameters()):,}")
         if self.curriculum:
             print(f"Curriculum: {self.curriculum}")
         print("-" * 60)
 
-        for epoch in range(epochs):
+        for epoch in range(start_epoch, epochs):
             start_time = time.time()
 
             max_iters = self.get_curriculum_max_iters(epoch)
@@ -271,10 +275,10 @@ class Trainer:
             # Save best model
             if val_metrics['loss'] < self.best_val_loss:
                 self.best_val_loss = val_metrics['loss']
-                self.save_checkpoint(os.path.join(save_dir, 'best_model.pt'))
+                self.save_checkpoint(os.path.join(save_dir, 'best_model.pt'), epoch=epoch)
 
         # Save final model
-        self.save_checkpoint(os.path.join(save_dir, 'final_model.pt'))
+        self.save_checkpoint(os.path.join(save_dir, 'final_model.pt'), epoch=epoch)
 
         print("-" * 60)
         print("Training complete!")
@@ -282,7 +286,7 @@ class Trainer:
 
         return dict(self.history)
 
-    def save_checkpoint(self, path: str):
+    def save_checkpoint(self, path: str, epoch: int = 0):
         """Save model checkpoint."""
         torch.save({
             'model_state_dict': self.model.state_dict(),
@@ -290,26 +294,28 @@ class Trainer:
             'scheduler_state_dict': self.scheduler.state_dict(),
             'config': self.config,
             'best_val_loss': self.best_val_loss,
-            'history': dict(self.history)
+            'history': dict(self.history),
+            'epoch': epoch
         }, path)
 
-    def load_checkpoint(self, path: str):
-        """Load model checkpoint."""
-        checkpoint = torch.load(path, map_location=self.device)
+    def load_checkpoint(self, path: str) -> int:
+        """Load model checkpoint. Returns the epoch to resume from."""
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self.best_val_loss = checkpoint.get('best_val_loss', float('inf'))
         self.history = defaultdict(list, checkpoint.get('history', {}))
-        return checkpoint.get('config', {})
+        return checkpoint.get('epoch', 0)
 
 
-def train_model(config: Dict) -> Tuple[RecursiveTransformer, Dict]:
+def train_model(config: Dict, resume_from: str = None) -> Tuple[RecursiveTransformer, Dict]:
     """
-    Main training function for GSM8K.
+    Main training function.
 
     Args:
         config: Training configuration dict
+        resume_from: Path to checkpoint to resume from (optional)
 
     Returns:
         Trained model and training history
@@ -360,11 +366,19 @@ def train_model(config: Dict) -> Tuple[RecursiveTransformer, Dict]:
         device=device
     )
 
+    # Resume from checkpoint if provided
+    start_epoch = 0
+    if resume_from is not None:
+        print(f"Loading checkpoint from {resume_from}...")
+        start_epoch = trainer.load_checkpoint(resume_from) + 1  # Start from next epoch
+        print(f"Resumed from epoch {start_epoch}")
+
     # Train
     history = trainer.train(
         epochs=config.get('epochs', 50),
         save_dir=config.get('save_dir', 'checkpoints'),
-        log_interval=config.get('log_interval', 10)
+        log_interval=config.get('log_interval', 10),
+        start_epoch=start_epoch
     )
 
     # Final test evaluation
