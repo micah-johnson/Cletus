@@ -185,10 +185,24 @@ class RecursiveTransformerLayer(nn.Module):
             x_norm = self.norm2(x)
 
             # Concatenate all previous hidden states
+            # Shape: [batch, num_prev_iters * seq_len, d_model]
             prev_concat = torch.cat(previous_states, dim=1)
+
+            # CRITICAL: Apply causal mask to cross-attention too!
+            # Position i can only attend to positions 0..i from each previous iteration
+            # For multiple iterations, we tile the mask
+            num_prev_iters = len(previous_states)
+            seq_len = x.size(1)
+            if attn_mask is not None:
+                # Tile the causal mask for each previous iteration
+                # attn_mask is [seq_len, seq_len], we need [seq_len, num_prev_iters * seq_len]
+                cross_attn_mask = attn_mask.repeat(1, num_prev_iters)
+            else:
+                cross_attn_mask = None
 
             cross_out, cross_attn_weights = self.cross_attn(
                 x_norm, prev_concat, prev_concat,
+                attn_mask=cross_attn_mask,
                 need_weights=return_attention
             )
 
