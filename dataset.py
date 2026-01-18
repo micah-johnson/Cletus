@@ -134,12 +134,24 @@ class GSM8KDataset(Dataset):
 
 class GSM8KDatasetSimple(Dataset):
     """
-    Simplified GSM8K Dataset for sequence-to-sequence style training.
+    Autoregressive dataset for next-token prediction.
 
-    Input: Question
-    Output: Answer (just the number)
+    Training setup:
+        Input:  [Question tokens] [Answer tokens]
+        Target: [IGNORE...] [Answer tokens shifted by 1] [EOS]
 
-    This is simpler and more suitable for testing the recursive mechanism.
+    The model learns to predict the next token at each position.
+    Loss is only computed on answer tokens (question is context).
+
+    Example:
+        Question: "What is (5 + 3)?"
+        Answer: "The answer is 8"
+
+        Input:  [What, is, (, 5, +, 3, ), ?, The, answer, is, 8]
+        Target: [IGN,  IGN, IGN, IGN, IGN, IGN, IGN, The, answer, is, 8, EOS]
+
+        Position 7 (after "?") learns to predict "The"
+        Position 11 (after "is") learns to predict "8" <- needs more iterations!
     """
 
     def __init__(
@@ -150,14 +162,6 @@ class GSM8KDatasetSimple(Dataset):
         max_output_len: int = 32,
         split: str = "train"
     ):
-        """
-        Args:
-            data_path: Path to the jsonl file
-            tokenizer: HuggingFace tokenizer
-            max_input_len: Maximum input sequence length
-            max_output_len: Maximum output sequence length
-            split: "train" or "test"
-        """
         self.tokenizer = tokenizer
         self.max_input_len = max_input_len
         self.max_output_len = max_output_len
@@ -195,44 +199,53 @@ class GSM8KDatasetSimple(Dataset):
         answer_tokens = self.tokenizer.encode(
             answer,
             add_special_tokens=False,
-            max_length=self.max_output_len,
+            max_length=self.max_output_len - 1,  # Leave room for EOS
             truncation=True
         )
 
-        # Add EOS to answer
-        if self.tokenizer.eos_token_id is not None:
-            answer_tokens = answer_tokens + [self.tokenizer.eos_token_id]
+        # Full sequence: question + answer + EOS
+        eos_id = self.tokenizer.eos_token_id
+        full_sequence = question_tokens + answer_tokens + [eos_id]
 
-        # INPUT: question + PAD tokens where answer will go (model must predict these)
-        answer_len = len(answer_tokens)
-        input_sequence = question_tokens + [self.tokenizer.pad_token_id] * answer_len
+        # For autoregressive: target is input shifted by 1
+        # Input:  [q0, q1, ..., qn, a0, a1, ..., am, EOS]
+        # Target: [q1, q2, ..., qn, a0, a1, ..., am, EOS, PAD] but we mask question
+        #
+        # Actually simpler: target[i] = input[i+1], and we mask question positions
 
-        # TARGET: question + answer (we only compute loss on answer part)
-        target_sequence = question_tokens + answer_tokens
+        seq_len = len(full_sequence)
+        question_len = len(question_tokens)
+        answer_len = len(answer_tokens) + 1  # +1 for EOS
 
-        # Pad both to max length
-        pad_len = self.max_seq_len - len(input_sequence)
+        # Pad to max length
+        pad_len = self.max_seq_len - seq_len
         if pad_len > 0:
-            input_sequence = input_sequence + [self.tokenizer.pad_token_id] * pad_len
-            target_sequence = target_sequence + [self.tokenizer.pad_token_id] * pad_len
+            input_sequence = full_sequence + [self.tokenizer.pad_token_id] * pad_len
         else:
-            input_sequence = input_sequence[:self.max_seq_len]
-            target_sequence = target_sequence[:self.max_seq_len]
+            input_sequence = full_sequence[:self.max_seq_len]
+            seq_len = self.max_seq_len
 
         input_ids = torch.tensor(input_sequence, dtype=torch.long)
-        target_ids = torch.tensor(target_sequence, dtype=torch.long)
 
-        # Mask question part in target (only compute loss on answer)
-        target_ids[:len(question_tokens)] = -100
+        # Target: shifted by 1 (next token prediction)
+        # target[i] = what should be predicted at position i = input[i+1]
+        target_ids = torch.full((self.max_seq_len,), -100, dtype=torch.long)
 
-        # Also ignore padding in target
-        target_ids[target_ids == self.tokenizer.pad_token_id] = -100
+        # Fill in targets for answer positions only
+        # Position (question_len - 1) should predict first answer token
+        # Position (question_len) should predict second answer token, etc.
+        for i in range(answer_len):
+            src_pos = question_len + i  # Position in input that has the answer token
+            tgt_pos = question_len - 1 + i  # Position that should predict this token
 
-        # Attention mask (attend to question, not to answer placeholders or padding)
+            if tgt_pos < self.max_seq_len and src_pos < len(full_sequence):
+                target_ids[tgt_pos] = full_sequence[src_pos]
+
+        # Attention mask (1 for real tokens, 0 for padding)
         attention_mask = torch.zeros(self.max_seq_len, dtype=torch.long)
-        attention_mask[:len(question_tokens)] = 1
+        attention_mask[:min(seq_len, self.max_seq_len)] = 1
 
-        # Get depth if available (for arithmetic dataset)
+        # Get depth if available
         depth = sample.get('depth', 0)
 
         return {
@@ -241,7 +254,7 @@ class GSM8KDatasetSimple(Dataset):
             'attention_mask': attention_mask,
             'question': question,
             'answer': answer,
-            'answer_start': len(question_tokens),
+            'answer_start': question_len - 1,  # First position that predicts answer
             'answer_len': answer_len,
             'depth': depth
         }
