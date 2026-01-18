@@ -195,7 +195,7 @@ SMALL_CONFIG = ExperimentConfig(
         max_seq_len=512
     ),
     data=DataConfig(
-        batch_size=32,
+        batch_size=48,
         max_seq_len=512
     ),
     train=TrainConfig(

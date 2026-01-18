@@ -209,46 +209,37 @@ def cmd_demo(args):
             print("Goodbye!")
             break
 
-        # Tokenize question
-        question_tokens = tokenizer.encode(user_input, add_special_tokens=True, max_length=max_seq_len - 32, truncation=True)
-        question_len = len(question_tokens)
+        # Tokenize question as prompt
+        prompt_tokens = tokenizer.encode(user_input, add_special_tokens=True, max_length=max_seq_len - 32, truncation=True)
+        prompt_ids = torch.tensor([prompt_tokens], dtype=torch.long, device=device)
 
-        # Add placeholder tokens for answer (model will predict these)
-        answer_placeholder_len = 32  # Reserve space for answer
-        input_tokens = question_tokens + [tokenizer.pad_token_id] * answer_placeholder_len
+        # Generate autoregressively with per-token iteration tracking
+        output_ids, iterations_per_token = model.generate(
+            prompt_ids,
+            max_new_tokens=32,
+            threshold=done_threshold,
+            temperature=0.7,
+            top_k=50,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.pad_token_id
+        )
 
-        # Pad to max_seq_len
-        if len(input_tokens) < max_seq_len:
-            input_tokens = input_tokens + [tokenizer.pad_token_id] * (max_seq_len - len(input_tokens))
-        else:
-            input_tokens = input_tokens[:max_seq_len]
+        # Decode generated tokens (excluding prompt)
+        generated_tokens = output_ids[0, len(prompt_tokens):].tolist()
+        # Stop at EOS or PAD
+        answer_tokens = []
+        for tok in generated_tokens:
+            if tok == tokenizer.eos_token_id or tok == tokenizer.pad_token_id:
+                break
+            answer_tokens.append(tok)
 
-        input_ids = torch.tensor([input_tokens], dtype=torch.long, device=device)
-
-        # Generate
-        with torch.no_grad():
-            output, metadata = model(
-                input_ids,
-                threshold=done_threshold
-            )
-
-            # Get predicted tokens for the answer portion
-            predictions = output.argmax(dim=-1)
-            answer_tokens = predictions[0, question_len:question_len + answer_placeholder_len].tolist()
-
-            # Stop at EOS or PAD
-            answer_text = []
-            for tok in answer_tokens:
-                if tok == tokenizer.eos_token_id or tok == tokenizer.pad_token_id:
-                    break
-                answer_text.append(tok)
-
-            predicted_answer = tokenizer.decode(answer_text, skip_special_tokens=True)
+        predicted_answer = tokenizer.decode(answer_tokens, skip_special_tokens=True)
 
         print(f"\nQuestion: {user_input}")
         print(f"Predicted answer: {predicted_answer}")
-        print(f"Iterations used: {metadata['num_iterations']}")
-        print(f"Done probs: {[f'{p:.2f}' for p in metadata['done_probs'][0].cpu().numpy().flatten()]}")
+        print(f"Tokens generated: {len(answer_tokens)}")
+        print(f"Iterations per token: {iterations_per_token[:len(answer_tokens)]}")
+        print(f"Avg iterations: {sum(iterations_per_token[:len(answer_tokens)]) / max(len(answer_tokens), 1):.2f}")
         print()
 
 

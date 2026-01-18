@@ -85,7 +85,6 @@ class Trainer:
         epoch_loss = 0.0
         epoch_metrics = defaultdict(float)
         num_batches = 0
-        total_iterations = 0
 
         effective_max_iters = max_iters if max_iters is not None else self.model.max_iterations
 
@@ -133,7 +132,6 @@ class Trainer:
                 self.optimizer.step()
 
             epoch_loss += loss.item()
-            total_iterations += metadata['num_iterations']
             for k, v in metrics.items():
                 if isinstance(v, (int, float)):
                     epoch_metrics[k] += v
@@ -143,8 +141,6 @@ class Trainer:
         epoch_loss /= num_batches
         for k in epoch_metrics:
             epoch_metrics[k] /= num_batches
-
-        epoch_metrics['avg_iterations'] = total_iterations / num_batches
 
         return {'loss': epoch_loss, **epoch_metrics}
 
@@ -186,11 +182,11 @@ class Trainer:
                 output, target_ids, metadata,
                 iteration_cost=self.iteration_cost,
                 done_supervision_weight=self.done_supervision_weight,
-                pad_token_id=pad_token_id
+                pad_token_id=pad_token_id,
+                tokenizer=self.tokenizer  # For number-only accuracy
             )
 
             total_loss += loss.item()
-            total_iterations_used += metadata['num_iterations'] * input_ids.size(0)
 
             for k, v in metrics.items():
                 if isinstance(v, (int, float)):
@@ -202,17 +198,32 @@ class Trainer:
             mask = (target_ids != pad_token_id)
             sample_correct = ((predictions == target_ids) | ~mask).all(dim=-1)
 
+            # Per-position iteration tracking
+            iters_per_pos = metadata.get('iterations_per_position', None)
+
             for i in range(input_ids.size(0)):
                 is_correct = sample_correct[i].item()
                 correct_predictions += int(is_correct)
                 total_predictions += 1
+
+                # Compute avg iterations for this sample (over answer positions)
+                if iters_per_pos is not None:
+                    sample_mask = mask[i]
+                    if sample_mask.any():
+                        sample_avg_iters = iters_per_pos[i][sample_mask].mean().item()
+                    else:
+                        sample_avg_iters = metadata['num_iterations']
+                else:
+                    sample_avg_iters = metadata['num_iterations']
+
+                total_iterations_used += sample_avg_iters
 
                 # Track per-depth stats if depth is available
                 if depths is not None:
                     d = depths[i].item() if hasattr(depths[i], 'item') else depths[i]
                     depth_total[d] += 1
                     depth_correct[d] += int(is_correct)
-                    depth_iterations[d].append(metadata['num_iterations'])
+                    depth_iterations[d].append(sample_avg_iters)
 
         # Average metrics
         total_loss /= num_batches
@@ -290,10 +301,11 @@ class Trainer:
                       f"Task: {train_metrics['task_loss']:.4f} | "
                       f"Acc: {train_metrics.get('final_accuracy', 0):.2%} | "
                       f"Avg Iters: {train_metrics.get('avg_iterations', 0):.2f}")
+                num_acc = val_metrics.get('number_accuracy')
+                num_acc_str = f" | NumAcc: {num_acc:.2%}" if num_acc is not None else ""
                 print(f"  Val Loss: {val_metrics['loss']:.4f} | "
-                      f"Acc: {val_metrics['accuracy']:.2%} | "
-                      f"Avg Iters: {val_metrics.get('avg_iterations', 0):.2f} | "
-                      f"Done prob: {val_metrics.get('mean_done_prob', 0):.3f}")
+                      f"Acc: {val_metrics['accuracy']:.2%}{num_acc_str} | "
+                      f"Avg Iters: {val_metrics.get('avg_iterations', 0):.2f}")
 
                 # Print per-depth stats if available
                 depth_stats = val_metrics.get('depth_stats', {})
