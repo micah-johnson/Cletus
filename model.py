@@ -258,6 +258,9 @@ class RecursiveTransformer(nn.Module):
         self.output_norm = RMSNorm(d_model)
         self.output_head = nn.Linear(d_model, vocab_size, bias=False)
 
+        # Tie input and output embeddings (reduces params by ~50%)
+        self.output_head.weight = self.embedding.weight
+
         # Iteration embedding - tells the model which iteration it's on
         self.iteration_embedding = nn.Embedding(max_iterations, d_model)
 

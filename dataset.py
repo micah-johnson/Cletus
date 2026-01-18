@@ -232,6 +232,9 @@ class GSM8KDatasetSimple(Dataset):
         attention_mask = torch.zeros(self.max_seq_len, dtype=torch.long)
         attention_mask[:len(question_tokens)] = 1
 
+        # Get depth if available (for arithmetic dataset)
+        depth = sample.get('depth', 0)
+
         return {
             'input_ids': input_ids,
             'target_ids': target_ids,
@@ -239,7 +242,8 @@ class GSM8KDatasetSimple(Dataset):
             'question': question,
             'answer': answer,
             'answer_start': len(question_tokens),
-            'answer_len': answer_len
+            'answer_len': answer_len,
+            'depth': depth
         }
 
 

@@ -162,6 +162,11 @@ class Trainer:
         total_predictions = 0
         total_iterations_used = 0
 
+        # Per-depth tracking
+        depth_correct = defaultdict(int)
+        depth_total = defaultdict(int)
+        depth_iterations = defaultdict(list)
+
         original_max_iters = self.model.max_iterations
         if max_iters is not None:
             self.model.max_iterations = max_iters
@@ -171,6 +176,7 @@ class Trainer:
         for batch in loader:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
+            depths = batch.get('depth', None)
 
             output, metadata = self.model(
                 input_ids,
@@ -191,12 +197,22 @@ class Trainer:
                     total_metrics[k] += v
             num_batches += 1
 
-            # Check prediction accuracy
+            # Check prediction accuracy per sample
             predictions = output.argmax(dim=-1)
             mask = (target_ids != pad_token_id)
-            batch_correct = ((predictions == target_ids) | ~mask).all(dim=-1).sum().item()
-            correct_predictions += batch_correct
-            total_predictions += input_ids.size(0)
+            sample_correct = ((predictions == target_ids) | ~mask).all(dim=-1)
+
+            for i in range(input_ids.size(0)):
+                is_correct = sample_correct[i].item()
+                correct_predictions += int(is_correct)
+                total_predictions += 1
+
+                # Track per-depth stats if depth is available
+                if depths is not None:
+                    d = depths[i].item() if hasattr(depths[i], 'item') else depths[i]
+                    depth_total[d] += 1
+                    depth_correct[d] += int(is_correct)
+                    depth_iterations[d].append(metadata['num_iterations'])
 
         # Average metrics
         total_loss /= num_batches
@@ -206,12 +222,22 @@ class Trainer:
         accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0.0
         avg_iterations = total_iterations_used / total_predictions if total_predictions > 0 else 0.0
 
+        # Compute per-depth stats
+        depth_stats = {}
+        for d in sorted(set(depth_total.keys())):
+            depth_stats[d] = {
+                'accuracy': depth_correct[d] / depth_total[d] if depth_total[d] > 0 else 0.0,
+                'avg_iters': sum(depth_iterations[d]) / len(depth_iterations[d]) if depth_iterations[d] else 0.0,
+                'count': depth_total[d]
+            }
+
         self.model.max_iterations = original_max_iters
 
         return {
             'loss': total_loss,
             'accuracy': accuracy,
             'avg_iterations': avg_iterations,
+            'depth_stats': depth_stats,
             **total_metrics
         }
 
@@ -246,11 +272,13 @@ class Trainer:
 
             self.scheduler.step()
 
-            # Record history
+            # Record history (skip non-scalar values like depth_stats)
             for k, v in train_metrics.items():
-                self.history[f'train_{k}'].append(v)
+                if isinstance(v, (int, float)):
+                    self.history[f'train_{k}'].append(v)
             for k, v in val_metrics.items():
-                self.history[f'val_{k}'].append(v)
+                if isinstance(v, (int, float)):
+                    self.history[f'val_{k}'].append(v)
 
             epoch_time = time.time() - start_time
 
@@ -266,6 +294,16 @@ class Trainer:
                       f"Acc: {val_metrics['accuracy']:.2%} | "
                       f"Avg Iters: {val_metrics.get('avg_iterations', 0):.2f} | "
                       f"Done prob: {val_metrics.get('mean_done_prob', 0):.3f}")
+
+                # Print per-depth stats if available
+                depth_stats = val_metrics.get('depth_stats', {})
+                if depth_stats:
+                    print("  Per-depth: ", end="")
+                    parts = []
+                    for d in sorted(depth_stats.keys()):
+                        s = depth_stats[d]
+                        parts.append(f"D{d}: {s['accuracy']:.0%} ({s['avg_iters']:.1f} iters)")
+                    print(" | ".join(parts))
 
                 # Print gate values
                 gates = self.model.get_gate_values()
