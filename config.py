@@ -240,7 +240,8 @@ LARGE_CONFIG = ExperimentConfig(
         max_seq_len=512
     ),
     data=DataConfig(
-        batch_size=16,
+        data_dir='data/gsm8k',
+        batch_size=8,
         max_seq_len=512
     ),
     train=TrainConfig(
