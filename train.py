@@ -174,8 +174,12 @@ class Trainer:
             target_ids = batch['target_ids'].to(self.device)
             depths = batch.get('depth', None)
 
+            # Use force_iterations during validation to match training behavior
+            # Otherwise the done classifier might exit early and give bad predictions
+            eval_iters = max_iters or self.config.get('max_iterations', 4)
             output, metadata = self.model(
                 input_ids,
+                force_iterations=eval_iters,
                 threshold=self.config.get('done_threshold', 0.7)
             )
             loss, metrics = compute_loss(
