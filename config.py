@@ -419,3 +419,148 @@ STANDARD_CONFIG = StandardConfig(
 def get_standard_config() -> StandardConfig:
     """Get standard transformer config."""
     return STANDARD_CONFIG
+
+
+# =============================================================================
+# TinyStories Configuration (Language Modeling)
+# =============================================================================
+
+@dataclass
+class TinyStoriesTrainConfig:
+    """Training config for TinyStories (steps-based, not epochs)."""
+    total_steps: int = 50000
+    learning_rate: float = 3e-4
+    weight_decay: float = 0.01
+    warmup_steps: int = 1000
+    iteration_cost: float = 0.01
+    done_supervision_weight: float = 0.5
+    done_threshold: float = 0.7
+    use_amp: bool = True
+    gradient_clip: float = 1.0
+    log_interval: int = 100
+    eval_interval: int = 1000
+    save_interval: int = 5000
+    save_dir: str = 'checkpoints_tinystories'
+    val_samples: int = 1000
+    # Auto batch size and gradient accumulation
+    target_effective_batch_size: int = 128  # Desired effective batch size
+    auto_batch_size: bool = True            # Enable auto-detection
+    batch_size_safety_margin: float = 0.8   # Use 80% of max batch size
+
+
+@dataclass
+class TinyStoriesConfig:
+    """TinyStories experiment configuration."""
+    model: ModelConfig = field(default_factory=lambda: ModelConfig(
+        d_model=256,
+        n_heads=4,
+        n_layers=6,
+        d_ff=1024,
+        max_iterations=8,
+        max_seq_len=256,
+    ))
+    data: DataConfig = field(default_factory=lambda: DataConfig(
+        data_dir='tinystories',  # Not used, streams from HuggingFace
+        batch_size=64,
+        max_seq_len=256,
+    ))
+    train: TinyStoriesTrainConfig = field(default_factory=TinyStoriesTrainConfig)
+
+    name: str = 'tinystories_pretrain'
+    seed: int = 42
+
+    def to_dict(self) -> dict:
+        """Convert to flat dictionary for training."""
+        return {
+            # Model
+            'vocab_size': self.model.vocab_size,
+            'd_model': self.model.d_model,
+            'n_heads': self.model.n_heads,
+            'n_layers': self.model.n_layers,
+            'd_ff': self.model.d_ff,
+            'max_iterations': self.model.max_iterations,
+            'dropout': self.model.dropout,
+            'max_seq_len': self.model.max_seq_len,
+
+            # Data
+            'tokenizer_name': self.data.tokenizer_name,
+            'batch_size': self.data.batch_size,
+
+            # Training
+            'total_steps': self.train.total_steps,
+            'learning_rate': self.train.learning_rate,
+            'weight_decay': self.train.weight_decay,
+            'warmup_steps': self.train.warmup_steps,
+            'iteration_cost': self.train.iteration_cost,
+            'done_supervision_weight': self.train.done_supervision_weight,
+            'done_threshold': self.train.done_threshold,
+            'use_amp': self.train.use_amp,
+            'gradient_clip': self.train.gradient_clip,
+            'log_interval': self.train.log_interval,
+            'eval_interval': self.train.eval_interval,
+            'save_interval': self.train.save_interval,
+            'save_dir': self.train.save_dir,
+            'val_samples': self.train.val_samples,
+            # Auto batch size
+            'target_effective_batch_size': self.train.target_effective_batch_size,
+            'auto_batch_size': self.train.auto_batch_size,
+            'batch_size_safety_margin': self.train.batch_size_safety_margin,
+
+            # Meta
+            'name': self.name,
+            'seed': self.seed,
+        }
+
+
+# Preset TinyStories configs
+TINYSTORIES_SMALL_CONFIG = TinyStoriesConfig(
+    model=ModelConfig(
+        d_model=256,
+        n_heads=4,
+        n_layers=6,
+        d_ff=1024,
+        max_iterations=8,
+        max_seq_len=256,
+    ),
+    data=DataConfig(
+        batch_size=64,
+        max_seq_len=256,
+    ),
+    train=TinyStoriesTrainConfig(
+        total_steps=50000,
+        learning_rate=3e-4,
+    ),
+    name='tinystories_small'
+)
+
+
+TINYSTORIES_MEDIUM_CONFIG = TinyStoriesConfig(
+    model=ModelConfig(
+        d_model=512,
+        n_heads=8,
+        n_layers=6,
+        d_ff=2048,
+        max_iterations=8,
+        max_seq_len=256,
+    ),
+    data=DataConfig(
+        batch_size=32,
+        max_seq_len=256,
+    ),
+    train=TinyStoriesTrainConfig(
+        total_steps=100000,
+        learning_rate=1.5e-4,
+    ),
+    name='tinystories_medium'
+)
+
+
+def get_tinystories_config(name: str = 'small') -> TinyStoriesConfig:
+    """Get TinyStories configuration by size."""
+    configs = {
+        'small': TINYSTORIES_SMALL_CONFIG,
+        'medium': TINYSTORIES_MEDIUM_CONFIG,
+    }
+    if name not in configs:
+        raise ValueError(f"Unknown TinyStories config: {name}. Available: {list(configs.keys())}")
+    return configs[name]

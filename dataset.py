@@ -187,10 +187,10 @@ class GSM8KDatasetSimple(Dataset):
         question = sample['question']
         raw_answer = str(sample['answer'])
 
-        # Add "The answer is" prefix for better adaptive compute signal
-        # Easy tokens: "The", "answer", "is" - should need 1 iteration
+        # Answer is now pre-formatted in the data as "The Answer is {number}"
+        # Easy tokens: "The", "Answer", "is" - should need 1 iteration
         # Hard token: the actual number - should need more iterations
-        answer = f"The answer is {raw_answer}"
+        answer = raw_answer
 
         # Encode question
         question_tokens = self.tokenizer.encode(
