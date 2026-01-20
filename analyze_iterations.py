@@ -6,10 +6,12 @@ Analyzes:
 - Correlation between iterations and token frequency (rare vs common)
 - Correlation between iterations and position in sentence
 - Correlation between iterations and surprisal/perplexity
+- PPL at different iteration counts (to show adaptive compute helps)
 """
 
 import argparse
 import math
+import os
 from collections import defaultdict
 from typing import Dict, List, Tuple, Optional
 
@@ -18,7 +20,8 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer
 
 from model import RecursiveTransformer
-from dataset_tinystories import get_tokenizer, get_token_frequencies
+from dataset_tinystories import get_tokenizer, get_token_frequencies, TinyStoriesDatasetFinite
+from torch.utils.data import DataLoader
 
 
 def load_model(checkpoint_path: str, device: str = 'cuda') -> Tuple[RecursiveTransformer, Dict]:
@@ -356,6 +359,170 @@ def analyze_specific_examples(
             print(f"  Frequency: {first_token['freq_category']}")
 
 
+@torch.no_grad()
+def evaluate_ppl_at_iterations(
+    model: RecursiveTransformer,
+    val_loader: DataLoader,
+    max_iterations: int = 8,
+    device: str = 'cuda'
+) -> Dict[int, float]:
+    """
+    Evaluate perplexity at different forced iteration counts.
+
+    Returns dict mapping iteration count -> perplexity.
+    """
+    model.eval()
+    results = {}
+
+    for num_iters in range(1, max_iterations + 1):
+        total_loss = 0.0
+        total_tokens = 0
+
+        for batch in val_loader:
+            input_ids = batch['input_ids'].to(device)
+            target_ids = batch['target_ids'].to(device)
+
+            # Force specific number of iterations
+            output, metadata = model(input_ids, force_iterations=num_iters)
+
+            # Compute loss (ignore padding)
+            loss = F.cross_entropy(
+                output.view(-1, output.size(-1)),
+                target_ids.view(-1),
+                ignore_index=-100,
+                reduction='sum'
+            )
+
+            # Count non-padding tokens
+            valid_tokens = (target_ids != -100).sum().item()
+            total_loss += loss.item()
+            total_tokens += valid_tokens
+
+        avg_loss = total_loss / total_tokens
+        ppl = math.exp(avg_loss)
+        results[num_iters] = ppl
+        print(f"  max_iters={num_iters}: PPL={ppl:.3f}")
+
+    return results
+
+
+def plot_ppl_vs_iterations(
+    results: Dict[int, float],
+    save_path: Optional[str] = None,
+    title: str = "Perplexity vs Number of Iterations"
+):
+    """Plot perplexity as a function of iteration count."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("matplotlib not installed, skipping plot")
+        return
+
+    iters = sorted(results.keys())
+    ppls = [results[i] for i in iters]
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(iters, ppls, 'b-o', linewidth=2, markersize=8)
+    plt.xlabel('Number of Iterations', fontsize=12)
+    plt.ylabel('Perplexity', fontsize=12)
+    plt.title(title, fontsize=14)
+    plt.grid(True, alpha=0.3)
+    plt.xticks(iters)
+
+    # Add value labels
+    for i, ppl in zip(iters, ppls):
+        plt.annotate(f'{ppl:.2f}', (i, ppl), textcoords="offset points",
+                     xytext=(0, 10), ha='center', fontsize=9)
+
+    # Highlight improvement
+    if len(ppls) > 1:
+        improvement = (ppls[0] - ppls[-1]) / ppls[0] * 100
+        plt.text(0.95, 0.95, f'Improvement: {improvement:.1f}%\n({ppls[0]:.2f} → {ppls[-1]:.2f})',
+                 transform=plt.gca().transAxes, fontsize=10,
+                 verticalalignment='top', horizontalalignment='right',
+                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Plot saved to {save_path}")
+    else:
+        plt.show()
+
+    plt.close()
+
+
+def run_iteration_sweep(
+    model: RecursiveTransformer,
+    tokenizer,
+    config: Dict,
+    device: str = 'cuda',
+    num_val_samples: int = 500,
+    save_plot: Optional[str] = None
+):
+    """
+    Run full iteration sweep analysis.
+
+    Evaluates model at each iteration count from 1 to max_iterations.
+    """
+    print("\n" + "=" * 70)
+    print("ITERATION SWEEP: PPL at Different Iteration Counts")
+    print("=" * 70)
+
+    # Create validation loader
+    val_dataset = TinyStoriesDatasetFinite(
+        tokenizer=tokenizer,
+        max_seq_len=config.get('max_seq_len', 256),
+        split="validation",
+        max_samples=num_val_samples
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=32,
+        shuffle=False,
+        num_workers=0
+    )
+
+    max_iterations = config.get('max_iterations', 8)
+    print(f"\nEvaluating PPL for iterations 1 to {max_iterations}...")
+
+    results = evaluate_ppl_at_iterations(
+        model, val_loader, max_iterations, device
+    )
+
+    # Summary
+    print("\n" + "-" * 70)
+    print("SUMMARY")
+    print("-" * 70)
+
+    best_iter = min(results, key=results.get)
+    worst_iter = max(results, key=results.get)
+
+    print(f"Best PPL:  {results[best_iter]:.3f} at {best_iter} iterations")
+    print(f"Worst PPL: {results[worst_iter]:.3f} at {worst_iter} iterations")
+    print(f"PPL at 1 iter:   {results[1]:.3f}")
+    print(f"PPL at max iter: {results[max_iterations]:.3f}")
+
+    improvement = (results[1] - results[max_iterations]) / results[1] * 100
+    print(f"\nImprovement from 1 to {max_iterations} iterations: {improvement:.1f}%")
+
+    # Check if more iterations helps
+    if results[max_iterations] < results[1]:
+        print("\n✓ More iterations HELPS - adaptive compute is beneficial!")
+    else:
+        print("\n✗ More iterations doesn't help - model may not be using iterations effectively")
+
+    # Plot
+    if save_plot:
+        plot_ppl_vs_iterations(results, save_plot)
+    else:
+        plot_ppl_vs_iterations(results)
+
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description='Analyze iteration patterns in trained model')
     parser.add_argument('checkpoint', type=str, help='Path to model checkpoint')
@@ -366,6 +533,12 @@ def main():
                         help='Number of prompts for comprehensive analysis')
     parser.add_argument('--prompt', type=str, default=None,
                         help='Single prompt to analyze')
+    parser.add_argument('--iteration-sweep', action='store_true',
+                        help='Evaluate PPL at each iteration count (1 to max)')
+    parser.add_argument('--sweep-samples', type=int, default=500,
+                        help='Number of validation samples for iteration sweep')
+    parser.add_argument('--save-plot', type=str, default=None,
+                        help='Path to save PPL vs iterations plot (e.g., ppl_sweep.png)')
 
     args = parser.parse_args()
 
@@ -376,6 +549,16 @@ def main():
 
     print(f"Model: d_model={config.get('d_model')}, n_layers={config.get('n_layers')}, "
           f"max_iterations={config.get('max_iterations')}")
+
+    # Iteration sweep analysis
+    if args.iteration_sweep:
+        run_iteration_sweep(
+            model, tokenizer, config,
+            device=args.device,
+            num_val_samples=args.sweep_samples,
+            save_plot=args.save_plot
+        )
+        return
 
     # Compute frequencies if requested
     token_frequencies = None
