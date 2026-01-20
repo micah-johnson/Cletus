@@ -830,6 +830,9 @@ class StandardWeightTiedTransformer(nn.Module):
         self.output_norm = RMSNorm(d_model)
         self.output_head = nn.Linear(d_model, vocab_size, bias=False)
 
+        # Tie input and output embeddings (same as RecursiveTransformer)
+        self.output_head.weight = self.embedding.weight
+
         self._init_weights()
 
     def _init_weights(self):
@@ -934,6 +937,9 @@ class StandardTransformer(nn.Module):
 
         self.output_norm = RMSNorm(d_model)
         self.output_head = nn.Linear(d_model, vocab_size, bias=False)
+
+        # Tie input and output embeddings
+        self.output_head.weight = self.embedding.weight
 
         self._init_weights()
 
