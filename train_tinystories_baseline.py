@@ -387,7 +387,7 @@ def find_max_batch_size_baseline(
     seq_len: int,
     device: str,
     start: int = 8,
-    max_batch: int = 512,
+    max_batch: int = 8192,
     use_amp: bool = True
 ) -> int:
     """Binary search for max batch size (baseline model version)."""
