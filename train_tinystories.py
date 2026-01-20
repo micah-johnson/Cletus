@@ -151,7 +151,7 @@ def find_max_batch_size(
     seq_len: int,
     device: str,
     start: int = 8,
-    max_batch: int = 8192,
+    max_batch: int = 512,
     use_amp: bool = True
 ) -> int:
     """
