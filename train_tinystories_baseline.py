@@ -550,8 +550,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=64, help='Manual batch size')
     parser.add_argument('--target-batch-size', type=int, default=128, help='Target effective batch size')
     parser.add_argument('--no-auto-batch', action='store_true', help='Disable auto batch size')
-    parser.add_argument('--d-model', type=int, default=256, help='Model dimension')
-    parser.add_argument('--n-layers', type=int, default=6, help='Number of layers')
+    parser.add_argument('--d-model', type=int, default=432, help='Model dimension (480 gives ~40M params)')
+    parser.add_argument('--n-layers', type=int, default=8, help='Number of layers')
     parser.add_argument('--n-repeats', type=int, default=1, help='Number of layer repeats (1 = single pass)')
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
     parser.add_argument('--resume', type=str, default=None, help='Checkpoint to resume from')
@@ -559,10 +559,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # Compute n_heads ensuring d_model is divisible
+    n_heads = 8 if args.d_model % 8 == 0 else (6 if args.d_model % 6 == 0 else 4)
+
     config = {
         'vocab_size': 50257,
         'd_model': args.d_model,
-        'n_heads': max(4, args.d_model // 64),
+        'n_heads': n_heads,
         'n_layers': args.n_layers,
         'd_ff': args.d_model * 4,
         'n_repeats': args.n_repeats,  # 1 = single pass (no repeats)
