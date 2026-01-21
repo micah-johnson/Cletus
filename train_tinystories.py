@@ -268,7 +268,7 @@ def compute_batch_settings(
     if auto_batch_size and device == 'cuda':
         max_batch = find_max_batch_size(
             model, vocab_size, seq_len, device,
-            start=8, max_batch=512, use_amp=use_amp
+            start=8, max_batch=1024, use_amp=use_amp
         )
         actual_batch_size = max(1, int(max_batch * safety_margin))
         print(f"Max batch size: {max_batch}")
