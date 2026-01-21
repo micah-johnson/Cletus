@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 
 from model import StandardWeightTiedTransformer
-from dataset_tinystories import create_tinystories_dataloaders, get_tokenizer
+from dataset_tinystories import create_tinystories_dataloaders, get_tokenizer, TINYSTORIES_VOCAB_SIZE
 from train_tinystories import (
     print_gpu_memory,
     find_max_batch_size,
@@ -465,13 +465,13 @@ def train_baseline(config: Dict = None, resume_from: str = None):
         print("WARNING: CUDA not available!")
         device = 'cpu'
 
-    tokenizer = get_tokenizer(config.get('tokenizer_name', 'gpt2'))
+    tokenizer = get_tokenizer(config.get('tokenizer_name', 'EleutherAI/gpt-neo-125M'))
 
     # Create baseline model - single pass through layers (no repeats)
     n_repeats = config.get('n_repeats', 1)
 
     model = StandardWeightTiedTransformer(
-        vocab_size=config.get('vocab_size', tokenizer.vocab_size),
+        vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
         d_model=config.get('d_model', 256),
         n_heads=config.get('n_heads', 4),
         n_layers=config.get('n_layers', 6),
@@ -490,7 +490,7 @@ def train_baseline(config: Dict = None, resume_from: str = None):
     if config.get('auto_batch_size', True) and device == 'cuda':
         max_batch = find_max_batch_size_baseline(
             model=model,
-            vocab_size=config.get('vocab_size', tokenizer.vocab_size),
+            vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
             seq_len=config.get('max_seq_len', 256),
             device=device,
             use_amp=config.get('use_amp', True)
@@ -511,7 +511,7 @@ def train_baseline(config: Dict = None, resume_from: str = None):
     config['accumulation_steps'] = accumulation_steps
 
     train_loader, val_loader, tokenizer = create_tinystories_dataloaders(
-        tokenizer_name=config.get('tokenizer_name', 'gpt2'),
+        tokenizer_name=config.get('tokenizer_name', 'EleutherAI/gpt-neo-125M'),
         max_seq_len=config.get('max_seq_len', 256),
         batch_size=actual_batch_size,
         num_workers=0,
@@ -550,7 +550,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=64, help='Manual batch size')
     parser.add_argument('--target-batch-size', type=int, default=128, help='Target effective batch size')
     parser.add_argument('--no-auto-batch', action='store_true', help='Disable auto batch size')
-    parser.add_argument('--d-model', type=int, default=432, help='Model dimension (480 gives ~40M params)')
+    parser.add_argument('--d-model', type=int, default=864, help='Model dimension (864 gives ~80M params)')
     parser.add_argument('--n-layers', type=int, default=8, help='Number of layers')
     parser.add_argument('--n-repeats', type=int, default=1, help='Number of layer repeats (1 = single pass)')
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
@@ -563,7 +563,7 @@ if __name__ == '__main__':
     n_heads = 8 if args.d_model % 8 == 0 else (6 if args.d_model % 6 == 0 else 4)
 
     config = {
-        'vocab_size': 50257,
+        'vocab_size': TINYSTORIES_VOCAB_SIZE,  # 10K (like TinyStories paper)
         'd_model': args.d_model,
         'n_heads': n_heads,
         'n_layers': args.n_layers,

@@ -20,7 +20,7 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer
 
 from model import RecursiveTransformer
-from dataset_tinystories import get_tokenizer, get_token_frequencies, TinyStoriesDatasetFinite
+from dataset_tinystories import get_tokenizer, get_token_frequencies, TinyStoriesDatasetFinite, TINYSTORIES_VOCAB_SIZE
 from torch.utils.data import DataLoader
 
 
@@ -30,7 +30,7 @@ def load_model(checkpoint_path: str, device: str = 'cuda') -> Tuple[RecursiveTra
     config = checkpoint['config']
 
     model = RecursiveTransformer(
-        vocab_size=config.get('vocab_size', 50257),
+        vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
         d_model=config.get('d_model', 256),
         n_heads=config.get('n_heads', 4),
         n_layers=config.get('n_layers', 6),

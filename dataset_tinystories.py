@@ -3,6 +3,8 @@ TinyStories Dataset for training recursive transformer on language modeling.
 
 Streams from HuggingFace: "roneneldan/TinyStories"
 Standard autoregressive setup: predict next token at each position.
+
+Uses GPT-Neo tokenizer with vocab limited to top 10K tokens (like TinyStories paper).
 """
 
 import torch
@@ -12,13 +14,23 @@ from typing import Iterator, Dict, Optional
 from datasets import load_dataset
 
 
-def get_tokenizer(model_name: str = "gpt2"):
-    """Load the tokenizer."""
+# TinyStories uses top 10K tokens from GPT-Neo tokenizer
+TINYSTORIES_VOCAB_SIZE = 10000
+UNK_TOKEN_ID = 0  # Map rare tokens to this ID
+
+
+def get_tokenizer(model_name: str = "EleutherAI/gpt-neo-125M"):
+    """Load the GPT-Neo tokenizer (what TinyStories used)."""
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
     return tokenizer
+
+
+def clamp_tokens(tokens: list, vocab_size: int = TINYSTORIES_VOCAB_SIZE, unk_id: int = UNK_TOKEN_ID) -> list:
+    """Clamp token IDs to vocab_size, mapping OOV tokens to UNK."""
+    return [t if t < vocab_size else unk_id for t in tokens]
 
 
 class TinyStoriesDataset(IterableDataset):
@@ -27,6 +39,7 @@ class TinyStoriesDataset(IterableDataset):
 
     Streams from HuggingFace to avoid downloading the full dataset.
     Standard next-token prediction: loss computed on ALL tokens.
+    Uses limited vocab (top 10K tokens) like the TinyStories paper.
 
     Each sample:
         Input:  [t0, t1, t2, ..., tn-1]
@@ -38,7 +51,8 @@ class TinyStoriesDataset(IterableDataset):
         tokenizer,
         max_seq_len: int = 256,
         split: str = "train",
-        buffer_size: int = 10000
+        buffer_size: int = 10000,
+        vocab_size: int = TINYSTORIES_VOCAB_SIZE
     ):
         """
         Args:
@@ -46,11 +60,13 @@ class TinyStoriesDataset(IterableDataset):
             max_seq_len: Maximum sequence length (TinyStories has short stories)
             split: "train" or "validation"
             buffer_size: Shuffle buffer size for streaming
+            vocab_size: Limit vocab to top N tokens (10K for TinyStories)
         """
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.split = split
         self.buffer_size = buffer_size
+        self.vocab_size = vocab_size
 
         # Load streaming dataset
         self.dataset = load_dataset(
@@ -78,14 +94,18 @@ class TinyStoriesDataset(IterableDataset):
                 truncation=True
             )
 
+            # Clamp to vocab size (map rare tokens to UNK)
+            tokens = clamp_tokens(tokens, self.vocab_size)
+
             # Skip very short sequences
             if len(tokens) < 10:
                 continue
 
-            # Pad if needed
+            # Pad if needed (pad_token_id should be < vocab_size)
+            pad_id = min(self.tokenizer.pad_token_id, self.vocab_size - 1)
             if len(tokens) < self.max_seq_len + 1:
                 pad_len = self.max_seq_len + 1 - len(tokens)
-                tokens = tokens + [self.tokenizer.pad_token_id] * pad_len
+                tokens = tokens + [pad_id] * pad_len
 
             # Convert to tensors
             tokens = torch.tensor(tokens[:self.max_seq_len + 1], dtype=torch.long)
@@ -96,8 +116,8 @@ class TinyStoriesDataset(IterableDataset):
             target_ids = tokens[1:]  # [max_seq_len]
 
             # Attention mask (1 for real tokens, 0 for padding)
-            # Note: we look at input_ids to determine padding
-            attention_mask = (input_ids != self.tokenizer.pad_token_id).long()
+            pad_id_tensor = torch.tensor(pad_id)
+            attention_mask = (input_ids != pad_id_tensor).long()
 
             # Don't compute loss on padding tokens
             # Set target to -100 where input was padding
@@ -122,11 +142,13 @@ class TinyStoriesDatasetFinite(torch.utils.data.Dataset):
         tokenizer,
         max_seq_len: int = 256,
         split: str = "validation",
-        max_samples: int = 1000
+        max_samples: int = 1000,
+        vocab_size: int = TINYSTORIES_VOCAB_SIZE
     ):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.split = split
+        self.vocab_size = vocab_size
 
         # Load and cache samples
         print(f"Loading {max_samples} samples from TinyStories {split}...")
@@ -147,6 +169,8 @@ class TinyStoriesDatasetFinite(torch.utils.data.Dataset):
                 max_length=self.max_seq_len + 1,
                 truncation=True
             )
+            # Clamp to vocab size (map rare tokens to UNK)
+            tokens = clamp_tokens(tokens, self.vocab_size)
             if len(tokens) >= 10:
                 self.samples.append(tokens)
 
@@ -156,22 +180,23 @@ class TinyStoriesDatasetFinite(torch.utils.data.Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        tokens = self.samples[idx]
+        tokens = self.samples[idx].copy()
 
-        # Pad if needed
+        # Pad if needed (pad_token_id should be < vocab_size)
+        pad_id = min(self.tokenizer.pad_token_id, self.vocab_size - 1)
         if len(tokens) < self.max_seq_len + 1:
             pad_len = self.max_seq_len + 1 - len(tokens)
-            tokens = tokens + [self.tokenizer.pad_token_id] * pad_len
+            tokens = tokens + [pad_id] * pad_len
 
         tokens = torch.tensor(tokens[:self.max_seq_len + 1], dtype=torch.long)
 
         input_ids = tokens[:-1]
         target_ids = tokens[1:]
 
-        attention_mask = (input_ids != self.tokenizer.pad_token_id).long()
+        attention_mask = (input_ids != pad_id).long()
 
         target_ids = target_ids.clone()
-        target_ids[target_ids == self.tokenizer.pad_token_id] = -100
+        target_ids[target_ids == pad_id] = -100
 
         return {
             'input_ids': input_ids,
@@ -181,21 +206,23 @@ class TinyStoriesDatasetFinite(torch.utils.data.Dataset):
 
 
 def create_tinystories_dataloaders(
-    tokenizer_name: str = "gpt2",
+    tokenizer_name: str = "EleutherAI/gpt-neo-125M",
     max_seq_len: int = 256,
     batch_size: int = 64,
     num_workers: int = 0,  # Must be 0 for IterableDataset
-    val_samples: int = 1000
+    val_samples: int = 1000,
+    vocab_size: int = TINYSTORIES_VOCAB_SIZE
 ):
     """
     Create train and validation dataloaders for TinyStories.
 
     Args:
-        tokenizer_name: HuggingFace tokenizer name
+        tokenizer_name: HuggingFace tokenizer name (default: GPT-Neo like TinyStories paper)
         max_seq_len: Maximum sequence length
         batch_size: Batch size
         num_workers: Number of workers (must be 0 for streaming)
         val_samples: Number of validation samples to cache
+        vocab_size: Limit vocab to top N tokens (10K for TinyStories)
 
     Returns:
         train_loader, val_loader, tokenizer
@@ -206,7 +233,8 @@ def create_tinystories_dataloaders(
     train_dataset = TinyStoriesDataset(
         tokenizer=tokenizer,
         max_seq_len=max_seq_len,
-        split="train"
+        split="train",
+        vocab_size=vocab_size
     )
 
     # Validation: finite cached dataset
@@ -214,7 +242,8 @@ def create_tinystories_dataloaders(
         tokenizer=tokenizer,
         max_seq_len=max_seq_len,
         split="validation",
-        max_samples=val_samples
+        max_samples=val_samples,
+        vocab_size=vocab_size
     )
 
     train_loader = DataLoader(
