@@ -54,7 +54,7 @@ def analyze_generation(
     prompt: str,
     max_tokens: int = 50,
     threshold: float = 0.5,
-    temperature: float = 1.0,
+    temperature: float = 0.5,
     top_k: Optional[int] = 50,
     token_frequencies: Optional[Dict[int, int]] = None
 ) -> List[Dict]:
