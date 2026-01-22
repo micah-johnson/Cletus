@@ -90,12 +90,18 @@ def analyze_generation(
         )
 
         # Get iterations used for the last position
-        iters_per_pos = metadata['iterations_per_position']  # [batch, seq_len]
-        iterations_used = int(iters_per_pos[0, -1].item())
+        iters_per_pos = metadata.get('iterations_per_position')
+        if iters_per_pos is not None:
+            iterations_used = int(iters_per_pos[0, -1].item())
+        else:
+            iterations_used = metadata.get('num_iterations', 1)
 
         # Get done probability at last position
-        done_probs = metadata['done_probs']  # [batch, num_iters, seq_len]
-        final_done_prob = done_probs[0, -1, -1].item()
+        done_probs = metadata.get('done_probs')
+        if done_probs is not None:
+            final_done_prob = done_probs[0, -1, -1].item()
+        else:
+            final_done_prob = 1.0  # Assume done if no done classifier
 
         # Get logits for next token
         logits = output[0, -1, :]  # [vocab_size]
@@ -364,26 +370,35 @@ def evaluate_ppl_at_iterations(
     model: RecursiveTransformer,
     val_loader: DataLoader,
     max_iterations: int = 8,
-    device: str = 'cuda'
+    device: str = 'cuda',
+    threshold: float = 0.5
 ) -> Dict[int, float]:
     """
-    Evaluate perplexity at different forced iteration counts.
+    Evaluate perplexity at different max iteration caps.
 
-    Returns dict mapping iteration count -> perplexity.
+    Unlike forcing a specific iteration count, this caps the maximum iterations
+    while allowing the model to stop early via the done classifier.
+
+    Returns dict mapping max iteration cap -> perplexity.
     """
     model.eval()
     results = {}
+    original_max_iters = model.max_iterations
 
-    for num_iters in range(1, max_iterations + 1):
+    for max_iters_cap in range(1, max_iterations + 1):
         total_loss = 0.0
         total_tokens = 0
+        total_iters_used = 0.0
+
+        # Temporarily cap max iterations
+        model.max_iterations = max_iters_cap
 
         for batch in val_loader:
             input_ids = batch['input_ids'].to(device)
             target_ids = batch['target_ids'].to(device)
 
-            # Force specific number of iterations
-            output, metadata = model(input_ids, force_iterations=num_iters)
+            # Let done classifier decide when to stop (up to the cap)
+            output, metadata = model(input_ids, threshold=threshold)
 
             # Compute loss (ignore padding)
             loss = F.cross_entropy(
@@ -398,10 +413,22 @@ def evaluate_ppl_at_iterations(
             total_loss += loss.item()
             total_tokens += valid_tokens
 
+            # Track average iterations actually used
+            iters_per_pos = metadata.get('iterations_per_position')
+            if iters_per_pos is not None:
+                valid_mask = target_ids != -100
+                total_iters_used += iters_per_pos[valid_mask].sum().item()
+            else:
+                total_iters_used += metadata.get('num_iterations', max_iters_cap) * valid_tokens
+
         avg_loss = total_loss / total_tokens
         ppl = math.exp(avg_loss)
-        results[num_iters] = ppl
-        print(f"  max_iters={num_iters}: PPL={ppl:.3f}")
+        avg_iters = total_iters_used / total_tokens if total_tokens > 0 else max_iters_cap
+        results[max_iters_cap] = ppl
+        print(f"  max_iters={max_iters_cap}: PPL={ppl:.3f} (avg iters used: {avg_iters:.2f})")
+
+    # Restore original max iterations
+    model.max_iterations = original_max_iters
 
     return results
 
@@ -459,15 +486,18 @@ def run_iteration_sweep(
     config: Dict,
     device: str = 'cuda',
     num_val_samples: int = 500,
-    save_plot: Optional[str] = None
+    save_plot: Optional[str] = None,
+    threshold: float = 0.5
 ):
     """
     Run full iteration sweep analysis.
 
-    Evaluates model at each iteration count from 1 to max_iterations.
+    Evaluates model at each max iteration cap from 1 to max_iterations.
+    The model can stop early via the done classifier, so this tests
+    how performance changes as we allow more iterations.
     """
     print("\n" + "=" * 70)
-    print("ITERATION SWEEP: PPL at Different Iteration Counts")
+    print("ITERATION SWEEP: PPL at Different Max Iteration Caps")
     print("=" * 70)
 
     # Create validation loader
@@ -486,10 +516,10 @@ def run_iteration_sweep(
     )
 
     max_iterations = config.get('max_iterations', 8)
-    print(f"\nEvaluating PPL for iterations 1 to {max_iterations}...")
+    print(f"\nEvaluating PPL for max iterations 1 to {max_iterations} (threshold={threshold})...")
 
     results = evaluate_ppl_at_iterations(
-        model, val_loader, max_iterations, device
+        model, val_loader, max_iterations, device, threshold=threshold
     )
 
     # Summary
@@ -539,6 +569,8 @@ def main():
                         help='Number of validation samples for iteration sweep')
     parser.add_argument('--save-plot', type=str, default=None,
                         help='Path to save PPL vs iterations plot (e.g., ppl_sweep.png)')
+    parser.add_argument('--threshold', type=float, default=0.5,
+                        help='Done classifier threshold for iteration sweep (default: 0.5)')
 
     args = parser.parse_args()
 
@@ -556,7 +588,8 @@ def main():
             model, tokenizer, config,
             device=args.device,
             num_val_samples=args.sweep_samples,
-            save_plot=args.save_plot
+            save_plot=args.save_plot,
+            threshold=args.threshold
         )
         return
 
