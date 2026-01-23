@@ -358,7 +358,8 @@ class RecursiveTransformer(nn.Module):
         all_hidden_states = []
         all_done_logits = []  # [num_iters] of [batch, seq_len]
         all_done_probs = []
-        all_outputs = []  # [num_iters] of [batch, seq_len, vocab]
+        all_predictions = []  # Store argmax predictions for intermediate iterations (memory efficient)
+        all_outputs = []  # Store full logits only for final iteration
         cross_attention_weights = []
 
         for iteration in range(self.max_iterations):
@@ -391,7 +392,16 @@ class RecursiveTransformer(nn.Module):
 
             # Compute output at this iteration (for all positions)
             iter_output = self.output_head(self.output_norm(x_iter))
-            all_outputs.append(iter_output)
+
+            # Only store full logits for final iteration; store predictions for intermediate
+            if iteration < self.max_iterations - 1:
+                # Just store predictions for done supervision (memory efficient)
+                with torch.no_grad():
+                    iter_preds = iter_output.argmax(dim=-1)  # [batch, seq_len]
+                all_predictions.append(iter_preds)
+            else:
+                # Store full logits only for final iteration
+                all_outputs.append(iter_output)
 
             # Per-position done classification
             done_logits = self.done_classifier(x_iter)  # [batch, seq_len]
@@ -429,14 +439,21 @@ class RecursiveTransformer(nn.Module):
             iterations_per_position = first_done.float()
 
         # Final output from last iteration
-        output = all_outputs[-1]
+        # Handle early exit: if we didn't reach max_iterations - 1, all_outputs is empty
+        if all_outputs:
+            output = all_outputs[-1]
+        else:
+            # Early exit - use iter_output and add to all_outputs for compute_loss
+            output = iter_output
+            all_outputs.append(iter_output)
 
         metadata = {
             'num_iterations': num_iterations,
             'done_logits': stacked_done_logits,  # [batch, num_iters, seq_len]
             'done_probs': stacked_done_probs,    # [batch, num_iters, seq_len]
             'iterations_per_position': iterations_per_position,  # [batch, seq_len]
-            'all_outputs': all_outputs,
+            'all_predictions': all_predictions,  # Predictions for intermediate iterations
+            'all_outputs': all_outputs,  # Full logits only for final iteration
             'all_hidden_states': all_hidden_states if return_all_states else None,
             'cross_attention_weights': cross_attention_weights if return_all_states else None
         }
@@ -627,10 +644,11 @@ def compute_loss(
     """
     device = output.device
     batch_size, seq_len = output.size(0), output.size(1)
-    all_outputs = metadata['all_outputs']
+    all_predictions = metadata.get('all_predictions', [])  # Predictions for intermediate iterations
+    all_outputs = metadata['all_outputs']  # Full logits only for final iteration
     done_logits = metadata['done_logits']  # [batch, num_iters, seq_len]
     done_probs = metadata['done_probs']    # [batch, num_iters, seq_len]
-    num_iters = len(all_outputs)
+    num_iters = len(all_predictions) + len(all_outputs)
 
     # 1. Task loss on final output
     if pad_token_id is not None:
@@ -653,7 +671,22 @@ def compute_loss(
     per_position_correct = []
     per_iter_accuracies = []
 
-    for iter_idx, iter_output in enumerate(all_outputs):
+    # Process intermediate iterations (predictions already computed, no argmax needed)
+    for predictions in all_predictions:
+        correct = (predictions == target).float()  # [batch, seq_len]
+
+        # For overall accuracy, we care about answer positions
+        if pad_token_id is not None:
+            answer_mask = (target != pad_token_id)
+            seq_correct = ((predictions == target) | ~answer_mask).all(dim=-1).float()
+        else:
+            seq_correct = (predictions == target).all(dim=-1).float()
+
+        per_position_correct.append(correct)
+        per_iter_accuracies.append(seq_correct.mean().item())
+
+    # Process final iteration (has full logits, need argmax)
+    for iter_output in all_outputs:
         predictions = iter_output.argmax(dim=-1)  # [batch, seq_len]
         correct = (predictions == target).float()  # [batch, seq_len]
 
@@ -1245,7 +1278,8 @@ class FlashRecursiveTransformer(nn.Module):
         all_hidden_states = []
         all_done_logits = []
         all_done_probs = []
-        all_outputs = []
+        all_predictions = []  # Store argmax predictions for intermediate iterations (memory efficient)
+        all_outputs = []  # Store full logits only for final iteration
 
         prev_state = None  # Only track immediately previous iteration
 
@@ -1268,7 +1302,16 @@ class FlashRecursiveTransformer(nn.Module):
 
             # Compute output at this iteration
             iter_output = self.output_head(self.output_norm(x_iter))
-            all_outputs.append(iter_output)
+
+            # Only store full logits for final iteration; store predictions for intermediate
+            if iteration < self.max_iterations - 1:
+                # Just store predictions for done supervision (memory efficient)
+                with torch.no_grad():
+                    iter_preds = iter_output.argmax(dim=-1)  # [batch, seq_len]
+                all_predictions.append(iter_preds)
+            else:
+                # Store full logits only for final iteration
+                all_outputs.append(iter_output)
 
             # Per-position done classification
             done_logits = self.done_classifier(x_iter)
@@ -1305,14 +1348,21 @@ class FlashRecursiveTransformer(nn.Module):
             iterations_per_position = first_done.float()
 
         # Final output from last iteration
-        output = all_outputs[-1]
+        # Handle early exit: if we didn't reach max_iterations - 1, all_outputs is empty
+        if all_outputs:
+            output = all_outputs[-1]
+        else:
+            # Early exit - use iter_output and add to all_outputs for compute_loss
+            output = iter_output
+            all_outputs.append(iter_output)
 
         metadata = {
             'num_iterations': num_iterations,
             'done_logits': stacked_done_logits,
             'done_probs': stacked_done_probs,
             'iterations_per_position': iterations_per_position,
-            'all_outputs': all_outputs,
+            'all_predictions': all_predictions,  # Predictions for intermediate iterations
+            'all_outputs': all_outputs,  # Full logits only for final iteration
             'all_hidden_states': all_hidden_states if return_all_states else None,
             'cross_attention_weights': None  # Not tracked in flash version
         }

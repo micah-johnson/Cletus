@@ -508,10 +508,11 @@ def compute_lm_loss(
     """
     device = output.device
     batch_size, seq_len = output.size(0), output.size(1)
-    all_outputs = metadata['all_outputs']
+    all_predictions = metadata.get('all_predictions', [])  # Predictions for intermediate iterations
+    all_outputs = metadata['all_outputs']  # Full logits only for final iteration
     done_logits = metadata['done_logits']  # [batch, num_iters, seq_len]
     done_probs = metadata['done_probs']    # [batch, num_iters, seq_len]
-    num_iters = len(all_outputs)
+    num_iters = len(all_predictions) + len(all_outputs)
 
     # Ignore index for padding
     ignore_idx = -100
@@ -529,7 +530,22 @@ def compute_lm_loss(
     per_position_correct = []
     per_iter_accuracies = []
 
-    for iter_idx, iter_output in enumerate(all_outputs):
+    # Process intermediate iterations (predictions already computed, no argmax needed)
+    for predictions in all_predictions:
+        correct = (predictions == target).float()  # [batch, seq_len]
+
+        # Mask out padding for accuracy computation
+        valid_mask = (target != ignore_idx)
+        if valid_mask.any():
+            acc = correct[valid_mask].mean().item()
+        else:
+            acc = 0.0
+
+        per_position_correct.append(correct)
+        per_iter_accuracies.append(acc)
+
+    # Process final iteration (has full logits, need argmax)
+    for iter_output in all_outputs:
         predictions = iter_output.argmax(dim=-1)  # [batch, seq_len]
         correct = (predictions == target).float()  # [batch, seq_len]
 
