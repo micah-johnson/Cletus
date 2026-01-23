@@ -342,7 +342,6 @@ def enable_gradient_checkpointing(model: RecursiveTransformer, checkpoint_every:
         all_hidden_states = []
         all_done_logits = []
         all_done_probs = []
-        all_outputs = []
         cross_attention_weights = []
 
         def run_iteration(x, iteration, prev_states_stacked, num_prev):
@@ -420,10 +419,6 @@ def enable_gradient_checkpointing(model: RecursiveTransformer, checkpoint_every:
             else:
                 all_hidden_states.append(x_iter)
 
-            # Compute output at this iteration
-            iter_output = model.output_head(model.output_norm(x_iter))
-            all_outputs.append(iter_output)
-
             # Per-position done classification
             done_logits = model.done_classifier(x_iter)
             all_done_logits.append(done_logits)
@@ -455,15 +450,16 @@ def enable_gradient_checkpointing(model: RecursiveTransformer, checkpoint_every:
             first_done[never_done] = num_iterations
             iterations_per_position = first_done.float()
 
-        output = all_outputs[-1]
+        # Only compute output head on final iteration
+        final_hidden = all_hidden_states[-1]
+        output = model.output_head(model.output_norm(final_hidden))
 
         metadata = {
             'num_iterations': num_iterations,
             'done_logits': stacked_done_logits,
             'done_probs': stacked_done_probs,
             'iterations_per_position': iterations_per_position,
-            'all_outputs': all_outputs,
-            'all_hidden_states': all_hidden_states if return_all_states else None,
+            'all_hidden_states': all_hidden_states,  # Always return for convergence-based done supervision
             'cross_attention_weights': cross_attention_weights if return_all_states else None
         }
 
@@ -499,19 +495,26 @@ def compute_lm_loss(
     metadata: Dict,
     iteration_cost: float = 0.01,
     done_supervision_weight: float = 0.5,
+    convergence_threshold: float = 0.95,
 ) -> Tuple[torch.Tensor, Dict]:
     """
-    Language modeling loss with done classifier supervision.
+    Language modeling loss with convergence-based done classifier supervision.
 
     Loss on ALL tokens (standard LM), not just answer tokens.
-    Done classifier learns when each position's prediction is correct.
+    Done classifier learns when each position's hidden state has CONVERGED
+    (high cosine similarity to final hidden state), not when prediction is correct.
+
+    This is more efficient because:
+    1. We only compute output logits on final iteration
+    2. No per-iteration prediction checking (expensive vocab projection)
+    3. Convergence is a better proxy for "done thinking" than correctness
     """
     device = output.device
     batch_size, seq_len = output.size(0), output.size(1)
-    all_outputs = metadata['all_outputs']
+    all_hidden_states = metadata['all_hidden_states']  # List of [batch, seq_len, d_model]
     done_logits = metadata['done_logits']  # [batch, num_iters, seq_len]
     done_probs = metadata['done_probs']    # [batch, num_iters, seq_len]
-    num_iters = len(all_outputs)
+    num_iters = len(all_hidden_states)
 
     # Ignore index for padding
     ignore_idx = -100
@@ -524,33 +527,36 @@ def compute_lm_loss(
         reduction='mean'
     )
 
-    # 2. Per-position done classifier supervision
-    # For each position at each iteration: is the prediction correct?
-    per_position_correct = []
-    per_iter_accuracies = []
+    # 2. Convergence-based done classifier supervision
+    # For each position at each iteration: how similar is the hidden state to the final?
+    # Get final hidden state as reference
+    final_hidden = all_hidden_states[-1]  # [batch, seq_len, d_model]
 
-    for iter_idx, iter_output in enumerate(all_outputs):
-        predictions = iter_output.argmax(dim=-1)  # [batch, seq_len]
-        correct = (predictions == target).float()  # [batch, seq_len]
+    # Compute convergence targets for each iteration
+    per_iter_similarities = []
+    done_targets_list = []
 
-        # Mask out padding for accuracy computation
-        valid_mask = (target != ignore_idx)
-        if valid_mask.any():
-            acc = correct[valid_mask].mean().item()
-        else:
-            acc = 0.0
+    for iter_hidden in all_hidden_states:
+        # Cosine similarity to final hidden state, per position
+        # Normalize along d_model dimension
+        iter_norm = F.normalize(iter_hidden, p=2, dim=-1)
+        final_norm = F.normalize(final_hidden, p=2, dim=-1)
+        similarity = (iter_norm * final_norm).sum(dim=-1)  # [batch, seq_len]
 
-        per_position_correct.append(correct)
-        per_iter_accuracies.append(acc)
+        # Threshold for "converged"
+        converged = (similarity > convergence_threshold).float()
+        done_targets_list.append(converged)
+        per_iter_similarities.append(similarity.mean().item())
 
     # Stack: [batch, num_iters, seq_len]
-    done_targets = torch.stack(per_position_correct, dim=1)
+    done_targets = torch.stack(done_targets_list, dim=1)
 
-    # Cumulative max over iterations: once correct, stays "done"
+    # Cumulative max over iterations: once converged, stays "done"
     done_targets_cummax, _ = torch.cummax(done_targets, dim=1)
 
     # Create mask for valid positions (non-padding)
-    valid_mask = (target != ignore_idx).unsqueeze(1).expand(-1, num_iters, -1)
+    valid_mask_single = (target != ignore_idx)  # [batch, seq_len]
+    valid_mask = valid_mask_single.unsqueeze(1).expand(-1, num_iters, -1)
 
     # BCE loss only on valid positions
     done_supervision_loss = F.binary_cross_entropy_with_logits(
@@ -563,7 +569,6 @@ def compute_lm_loss(
     # 3. Per-position iteration cost
     # Penalize positions for "continuing" (not being done)
     continuation_probs = 1 - done_probs  # [batch, num_iters, seq_len]
-    valid_mask_single = (target != ignore_idx)  # [batch, seq_len]
     expected_iters_per_pos = continuation_probs.sum(dim=1)  # [batch, seq_len]
 
     if valid_mask_single.any():
@@ -574,7 +579,7 @@ def compute_lm_loss(
     # Total loss
     total_loss = task_loss + done_supervision_weight * done_supervision_loss + iter_loss
 
-    # Compute perplexity
+    # Compute perplexity and final accuracy
     with torch.no_grad():
         perplexity = torch.exp(task_loss).item()
 
@@ -588,6 +593,14 @@ def compute_lm_loss(
         else:
             avg_iters = num_iters
 
+        # Compute final accuracy (on final output only)
+        predictions = output.argmax(dim=-1)  # [batch, seq_len]
+        correct = (predictions == target).float()
+        if valid_mask_single.any():
+            final_accuracy = correct[valid_mask_single].mean().item()
+        else:
+            final_accuracy = 0.0
+
     metrics = {
         'task_loss': task_loss.item(),
         'done_loss': done_supervision_loss.item(),
@@ -596,8 +609,8 @@ def compute_lm_loss(
         'avg_iterations': avg_iters,
         'max_iterations_run': num_iters,
         'mean_done_prob': done_probs[:, -1, :].mean().item(),
-        'per_iter_accuracy': per_iter_accuracies,
-        'final_accuracy': per_iter_accuracies[-1] if per_iter_accuracies else 0.0
+        'per_iter_similarity': per_iter_similarities,
+        'final_accuracy': final_accuracy,
     }
 
     return total_loss, metrics
@@ -698,6 +711,7 @@ class TinyStoriesTrainer:
         # Loss weights (only used for recursive models)
         self.iteration_cost = config.get('iteration_cost', 0.01)
         self.done_supervision_weight = config.get('done_supervision_weight', 0.5)
+        self.convergence_threshold = config.get('convergence_threshold', 0.95)
 
         # Tracking
         self.best_val_loss = float('inf')
@@ -760,7 +774,8 @@ class TinyStoriesTrainer:
                         loss, metrics = compute_lm_loss(
                             output, target_ids, metadata,
                             iteration_cost=self.iteration_cost,
-                            done_supervision_weight=self.done_supervision_weight
+                            done_supervision_weight=self.done_supervision_weight,
+                            convergence_threshold=self.convergence_threshold
                         )
                         scaled_loss = loss / self.accumulation_steps
                     self.scaler.scale(scaled_loss).backward()
@@ -769,7 +784,8 @@ class TinyStoriesTrainer:
                     loss, metrics = compute_lm_loss(
                         output, target_ids, metadata,
                         iteration_cost=self.iteration_cost,
-                        done_supervision_weight=self.done_supervision_weight
+                        done_supervision_weight=self.done_supervision_weight,
+                        convergence_threshold=self.convergence_threshold
                     )
                     scaled_loss = loss / self.accumulation_steps
                     scaled_loss.backward()
@@ -829,7 +845,8 @@ class TinyStoriesTrainer:
                 loss, metrics = compute_lm_loss(
                     output, target_ids, metadata,
                     iteration_cost=self.iteration_cost,
-                    done_supervision_weight=self.done_supervision_weight
+                    done_supervision_weight=self.done_supervision_weight,
+                    convergence_threshold=self.convergence_threshold
                 )
 
             total_loss += loss.item()

@@ -234,6 +234,7 @@ class WikipediaTrainer:
         # Loss weights
         self.iteration_cost = config.get('iteration_cost', 0.01)
         self.done_supervision_weight = config.get('done_supervision_weight', 0.5)
+        self.convergence_threshold = config.get('convergence_threshold', 0.95)
 
         # Tracking
         self.best_val_loss = float('inf')
@@ -273,7 +274,8 @@ class WikipediaTrainer:
                     loss, metrics = compute_lm_loss(
                         output, target_ids, metadata,
                         iteration_cost=self.iteration_cost,
-                        done_supervision_weight=self.done_supervision_weight
+                        done_supervision_weight=self.done_supervision_weight,
+                        convergence_threshold=self.convergence_threshold
                     )
                     scaled_loss = loss / self.accumulation_steps
 
@@ -283,7 +285,8 @@ class WikipediaTrainer:
                 loss, metrics = compute_lm_loss(
                     output, target_ids, metadata,
                     iteration_cost=self.iteration_cost,
-                    done_supervision_weight=self.done_supervision_weight
+                    done_supervision_weight=self.done_supervision_weight,
+                    convergence_threshold=self.convergence_threshold
                 )
                 scaled_loss = loss / self.accumulation_steps
                 scaled_loss.backward()
@@ -336,7 +339,8 @@ class WikipediaTrainer:
             loss, metrics = compute_lm_loss(
                 output, target_ids, metadata,
                 iteration_cost=self.iteration_cost,
-                done_supervision_weight=self.done_supervision_weight
+                done_supervision_weight=self.done_supervision_weight,
+                convergence_threshold=self.convergence_threshold
             )
 
             total_loss += loss.item()
@@ -600,6 +604,8 @@ if __name__ == '__main__':
     parser.add_argument('--compile-mode', type=str, default='max-autotune',
                         choices=['default', 'reduce-overhead', 'max-autotune'],
                         help='torch.compile mode (default: max-autotune for best performance)')
+    parser.add_argument('--convergence-threshold', type=float, default=0.95,
+                        help='Cosine similarity threshold for hidden state convergence (done supervision)')
 
     args = parser.parse_args()
 
@@ -627,6 +633,7 @@ if __name__ == '__main__':
         # Loss weights
         'iteration_cost': 0.01,
         'done_supervision_weight': 0.5,
+        'convergence_threshold': args.convergence_threshold,
 
         # Logging
         'save_dir': args.save_dir,
