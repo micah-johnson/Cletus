@@ -299,22 +299,35 @@ def enable_gradient_checkpointing(model: RecursiveTransformer):
     This saves memory by not storing intermediate activations during the forward
     pass, recomputing them during the backward pass instead. Trades compute for
     memory - typically ~30% slower but uses significantly less GPU memory.
+
+    Note: For the recursive transformer, we must snapshot previous_states at
+    checkpoint time since the list grows with each iteration.
     """
     def make_checkpointed_forward(original_forward):
         def checkpointed_forward(x, previous_states=None, attn_mask=None, return_attention=False):
-            # checkpoint requires all inputs to be tensors or None
-            # We need to handle previous_states (list of tensors) specially
+            # Snapshot previous_states at checkpoint time to avoid issues with
+            # the list growing during iteration. We concatenate into a single
+            # tensor (or use None) so checkpoint sees consistent shapes.
             if previous_states is not None and len(previous_states) > 0:
-                # Concatenate for checkpointing, will be handled inside the layer
-                pass
+                # Stack into single tensor: [num_prev, batch, seq, d_model]
+                prev_stacked = torch.stack(previous_states, dim=0)
+                num_prev = len(previous_states)
+            else:
+                prev_stacked = None
+                num_prev = 0
 
-            def custom_forward(x, attn_mask, return_attention_flag):
-                return original_forward(x, previous_states, attn_mask, bool(return_attention_flag))
+            def custom_forward(x, prev_stacked, attn_mask, num_prev_tensor):
+                # Reconstruct previous_states list from stacked tensor
+                if prev_stacked is not None:
+                    prev_list = [prev_stacked[i] for i in range(int(num_prev_tensor.item()))]
+                else:
+                    prev_list = None
+                return original_forward(x, prev_list, attn_mask, bool(return_attention))
 
             # Use checkpoint - recomputes forward during backward
             return checkpoint(
                 custom_forward,
-                x, attn_mask, torch.tensor(return_attention),
+                x, prev_stacked, attn_mask, torch.tensor(num_prev, dtype=torch.long),
                 use_reentrant=False
             )
         return checkpointed_forward
