@@ -88,14 +88,14 @@ def _test_batch_size_baseline(
 
         if use_amp:
             with autocast('cuda', dtype=torch.bfloat16):
-                output = model(dummy_input)
+                output, _ = model(dummy_input)
                 loss = F.cross_entropy(
                     output.view(-1, output.size(-1)),
                     dummy_target.view(-1),
                     reduction='mean'
                 )
         else:
-            output = model(dummy_input)
+            output, _ = model(dummy_input)
             loss = F.cross_entropy(
                 output.view(-1, output.size(-1)),
                 dummy_target.view(-1),
@@ -266,13 +266,13 @@ class BaselineTrainer:
 
             if self.use_amp:
                 with autocast('cuda', dtype=torch.bfloat16):
-                    output = self.model(input_ids)
+                    output, _ = self.model(input_ids)
                     loss, metrics = compute_baseline_loss(output, target_ids)
                     scaled_loss = loss / self.accumulation_steps
 
                 self.scaler.scale(scaled_loss).backward()
             else:
-                output = self.model(input_ids)
+                output, _ = self.model(input_ids)
                 loss, metrics = compute_baseline_loss(output, target_ids)
                 scaled_loss = loss / self.accumulation_steps
                 scaled_loss.backward()
@@ -314,7 +314,7 @@ class BaselineTrainer:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
 
-            output = self.model(input_ids)
+            output, _ = self.model(input_ids)
             loss, metrics = compute_baseline_loss(output, target_ids)
 
             total_loss += loss.item()

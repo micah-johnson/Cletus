@@ -102,7 +102,7 @@ def _test_batch_size(
         if use_amp:
             with autocast('cuda', dtype=torch.bfloat16):
                 if is_baseline:
-                    output = model(dummy_input)
+                    output, _ = model(dummy_input)
                 else:
                     output, metadata = model(dummy_input, force_iterations=model.max_iterations)
                 loss = F.cross_entropy(
@@ -112,7 +112,7 @@ def _test_batch_size(
                 )
         else:
             if is_baseline:
-                output = model(dummy_input)
+                output, _ = model(dummy_input)
             else:
                 output, metadata = model(dummy_input, force_iterations=model.max_iterations)
             loss = F.cross_entropy(
@@ -735,15 +735,15 @@ class TinyStoriesTrainer:
             target_ids = batch['target_ids'].to(self.device)
 
             if self.is_baseline:
-                # Baseline model: simple forward pass
+                # Baseline model: simple forward pass (returns output, metadata tuple)
                 if self.use_amp:
                     with autocast('cuda', dtype=torch.bfloat16):
-                        output = self.model(input_ids)
+                        output, _ = self.model(input_ids)
                         loss, metrics = compute_baseline_loss(output, target_ids)
                         scaled_loss = loss / self.accumulation_steps
                     self.scaler.scale(scaled_loss).backward()
                 else:
-                    output = self.model(input_ids)
+                    output, _ = self.model(input_ids)
                     loss, metrics = compute_baseline_loss(output, target_ids)
                     scaled_loss = loss / self.accumulation_steps
                     scaled_loss.backward()
@@ -816,8 +816,8 @@ class TinyStoriesTrainer:
             target_ids = batch['target_ids'].to(self.device)
 
             if self.is_baseline:
-                # Baseline: simple forward pass
-                output = self.model(input_ids)
+                # Baseline: simple forward pass (returns output, metadata tuple)
+                output, _ = self.model(input_ids)
                 loss, metrics = compute_baseline_loss(output, target_ids)
             else:
                 # Recursive: run full iterations for evaluation
