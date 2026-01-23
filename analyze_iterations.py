@@ -1,5 +1,7 @@
 """
-Analysis script for iteration patterns in TinyStories-trained recursive transformer.
+Analysis script for iteration patterns in Wikipedia-trained recursive transformer.
+
+Uses FlashRecursiveTransformer by default for efficient attention computation.
 
 Analyzes:
 - Iterations per token during generation
@@ -20,7 +22,7 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer
 
 from model import RecursiveTransformer, FlashRecursiveTransformer
-from dataset_tinystories import get_tokenizer, get_token_frequencies, TinyStoriesDatasetFinite, TINYSTORIES_VOCAB_SIZE
+from dataset_wikipedia import get_tokenizer, WikipediaDatasetFinite, GPT2_VOCAB_SIZE
 
 # Union type for both model variants
 from typing import Union
@@ -28,25 +30,69 @@ ModelType = Union[RecursiveTransformer, FlashRecursiveTransformer]
 from torch.utils.data import DataLoader
 
 
+def get_token_frequencies(tokenizer, num_samples: int = 10000) -> Dict[int, int]:
+    """
+    Compute token frequencies from Wikipedia dataset.
+
+    Args:
+        tokenizer: The tokenizer to use
+        num_samples: Number of samples to process for frequency computation
+
+    Returns:
+        Dictionary mapping token_id -> frequency count
+    """
+    from datasets import load_dataset
+
+    print(f"Computing token frequencies from {num_samples} Wikipedia samples...")
+    frequencies = defaultdict(int)
+
+    # Load streaming dataset
+    dataset = load_dataset(
+        "omarkamali/wikipedia-monthly",
+        "20251201.en",
+        split="train",
+        streaming=True
+    )
+
+    for i, sample in enumerate(dataset):
+        if i >= num_samples:
+            break
+
+        text = sample.get('text', '')
+        if not text or len(text.strip()) < 50:
+            continue
+
+        # Tokenize and count
+        tokens = tokenizer.encode(text, add_special_tokens=False, max_length=512, truncation=True)
+        for token_id in tokens:
+            frequencies[token_id] += 1
+
+        if (i + 1) % 1000 == 0:
+            print(f"  Processed {i + 1}/{num_samples} samples...")
+
+    print(f"Computed frequencies for {len(frequencies)} unique tokens")
+    return dict(frequencies)
+
+
 def load_model(checkpoint_path: str, device: str = 'cuda') -> Tuple[ModelType, Dict]:
-    """Load trained model from checkpoint (auto-detects model type)."""
+    """Load trained model from checkpoint (defaults to FlashRecursiveTransformer)."""
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config = checkpoint['config']
 
-    # Auto-detect model type from config
-    use_flash = config.get('use_flash_attention', False)
+    # Default to FlashRecursiveTransformer (use_flash_attention defaults to True)
+    use_flash = config.get('use_flash_attention', True)
     ModelClass = FlashRecursiveTransformer if use_flash else RecursiveTransformer
     model_type = "FlashRecursiveTransformer" if use_flash else "RecursiveTransformer"
 
     model = ModelClass(
-        vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
-        d_model=config.get('d_model', 256),
-        n_heads=config.get('n_heads', 4),
-        n_layers=config.get('n_layers', 6),
-        d_ff=config.get('d_ff', 1024),
-        max_iterations=config.get('max_iterations', 8),
+        vocab_size=config.get('vocab_size', GPT2_VOCAB_SIZE),
+        d_model=config.get('d_model', 704),
+        n_heads=config.get('n_heads', 8),
+        n_layers=config.get('n_layers', 9),
+        d_ff=config.get('d_ff', 2816),
+        max_iterations=config.get('max_iterations', 5),
         dropout=0.0,  # No dropout during inference
-        max_seq_len=config.get('max_seq_len', 256)
+        max_seq_len=config.get('max_seq_len', 512)
     )
 
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -271,17 +317,21 @@ def run_comprehensive_analysis(
 ):
     """Run comprehensive analysis across multiple prompts."""
 
+    # Wikipedia-style prompts covering various topics
     prompts = [
-        "Once upon a time",
-        "The little girl",
-        "One day, a",
-        "There was a",
-        "A big dog",
-        "The sun was",
-        "In the forest",
-        "The boy wanted to",
-        "She looked at the",
-        "They went to the"
+        # History and geography
+        "The French Revolution was",
+        "Mount Everest is located in",
+        "World War II began when",
+        "The Roman Empire was",
+        # Science and technology
+        "Photosynthesis is the process by which",
+        "The theory of relativity states that",
+        "DNA contains the genetic",
+        "Artificial intelligence is a field of",
+        # Culture and arts
+        "The Renaissance was a period of",
+        "Classical music originated in"
     ][:num_prompts]
 
     all_results = []
@@ -343,16 +393,22 @@ def analyze_specific_examples(
 ):
     """Analyze specific interesting examples."""
 
+    # Wikipedia-style examples with varying difficulty
     examples = [
-        # Easy continuation expected
-        ("Once upon a", "time"),  # Very predictable
-        ("The dog ran", "away"),  # Predictable
-        ("She said", "hello"),    # Common
+        # Easy continuation expected (common Wikipedia patterns)
+        ("The United States of", "America"),           # Very predictable
+        ("According to the", "article"),               # Common Wikipedia phrase
+        ("It is located in the", "city"),              # Predictable continuation
 
-        # Hard continuation expected
-        ("The wizard's name was", "Merlin"),  # Specific name
-        ("The capital of", "France"),         # Factual
-        ("The year was", "1984"),              # Specific number
+        # Medium difficulty (factual knowledge)
+        ("The capital of France is", "Paris"),         # Factual
+        ("Albert Einstein developed the theory of", "relativity"),  # Famous fact
+        ("The chemical symbol for water is", "H2O"),   # Scientific notation
+
+        # Hard continuation expected (specific details)
+        ("The Declaration of Independence was signed in", "1776"),  # Specific year
+        ("The speed of light is approximately", "299"),             # Specific number
+        ("The Mona Lisa was painted by", "Leonardo"),               # Specific artist
     ]
 
     print("\n" + "=" * 70)
@@ -510,11 +566,10 @@ def run_iteration_sweep(
     print("ITERATION SWEEP: PPL at Different Max Iteration Caps")
     print("=" * 70)
 
-    # Create validation loader
-    val_dataset = TinyStoriesDatasetFinite(
+    # Create validation loader using Wikipedia dataset
+    val_dataset = WikipediaDatasetFinite(
         tokenizer=tokenizer,
-        max_seq_len=config.get('max_seq_len', 256),
-        split="validation",
+        max_seq_len=config.get('max_seq_len', 512),
         max_samples=num_val_samples
     )
 
@@ -589,7 +644,7 @@ def main():
     model, config = load_model(args.checkpoint, args.device)
     tokenizer = get_tokenizer()
 
-    model_type = "Flash" if config.get('use_flash_attention', False) else "Standard"
+    model_type = "Flash" if config.get('use_flash_attention', True) else "Standard"
     print(f"Model ({model_type}): d_model={config.get('d_model')}, n_layers={config.get('n_layers')}, "
           f"max_iterations={config.get('max_iterations')}")
 
