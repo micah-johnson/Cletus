@@ -555,7 +555,7 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
         tokenizer_name="gpt2",
         max_seq_len=full_config['max_seq_len'],
         batch_size=actual_batch_size,
-        num_workers=0,
+        num_workers=full_config.get('num_workers', 4),
         val_samples=full_config.get('val_samples', 1000),
         dataset_name=full_config.get('dataset_name', "omarkamali/wikipedia-monthly"),
         dataset_config=full_config.get('dataset_config', "20251201.en"),
@@ -606,6 +606,8 @@ if __name__ == '__main__':
                         help='torch.compile mode (default: max-autotune for best performance)')
     parser.add_argument('--convergence-threshold', type=float, default=0.95,
                         help='Cosine similarity threshold for hidden state convergence (done supervision)')
+    parser.add_argument('--num-workers', type=int, default=4,
+                        help='Number of DataLoader workers for prefetching (default: 4)')
 
     args = parser.parse_args()
 
@@ -641,6 +643,9 @@ if __name__ == '__main__':
         'eval_interval': 2000,
         'save_interval': 10000,
         'val_samples': 1000,
+
+        # DataLoader
+        'num_workers': args.num_workers,
     }
 
     train_wikipedia_125m(config, resume_from=args.resume)

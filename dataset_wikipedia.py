@@ -214,7 +214,7 @@ def create_wikipedia_dataloaders(
     tokenizer_name: str = "gpt2",
     max_seq_len: int = 512,
     batch_size: int = 32,
-    num_workers: int = 0,  # Must be 0 for IterableDataset
+    num_workers: int = 4,
     val_samples: int = 1000,
     dataset_name: str = "omarkamali/wikipedia-monthly",
     dataset_config: str = "20251201.en",
@@ -226,7 +226,7 @@ def create_wikipedia_dataloaders(
         tokenizer_name: HuggingFace tokenizer name
         max_seq_len: Maximum sequence length
         batch_size: Batch size
-        num_workers: Number of workers (must be 0 for streaming)
+        num_workers: Number of workers for data loading (default 4)
         val_samples: Number of validation samples to cache
         dataset_name: HuggingFace dataset name
         dataset_config: Dataset configuration
@@ -259,7 +259,9 @@ def create_wikipedia_dataloaders(
         train_dataset,
         batch_size=batch_size,
         num_workers=num_workers,
-        pin_memory=True
+        pin_memory=True,
+        prefetch_factor=2 if num_workers > 0 else None,
+        persistent_workers=True if num_workers > 0 else False,
     )
 
     val_loader = DataLoader(
@@ -267,7 +269,9 @@ def create_wikipedia_dataloaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True
+        pin_memory=True,
+        prefetch_factor=2 if num_workers > 0 else None,
+        persistent_workers=True if num_workers > 0 else False,
     )
 
     return train_loader, val_loader, tokenizer
