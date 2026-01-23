@@ -292,7 +292,7 @@ def compute_batch_settings(
 # Gradient Checkpointing
 # =============================================================================
 
-def enable_gradient_checkpointing(model: RecursiveTransformer, checkpoint_every: int = 3):
+def enable_gradient_checkpointing(model: RecursiveTransformer, checkpoint_every: int = 2):
     """
     Enable gradient checkpointing at the iteration level.
 
