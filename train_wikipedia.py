@@ -264,6 +264,9 @@ class WikipediaTrainer:
             else:
                 batch_max_iters = self.model.max_iterations
 
+            # Mark step begin for CUDA graphs (required for torch.compile with max-autotune)
+            torch.compiler.cudagraph_mark_step_begin()
+
             if self.use_amp:
                 with autocast('cuda', dtype=torch.bfloat16):
                     output, metadata = self.model(input_ids, force_iterations=batch_max_iters)
@@ -321,6 +324,9 @@ class WikipediaTrainer:
         for batch in self.val_loader:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
+
+            # Mark step begin for CUDA graphs
+            torch.compiler.cudagraph_mark_step_begin()
 
             output, metadata = self.model(
                 input_ids,
