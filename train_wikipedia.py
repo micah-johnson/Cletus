@@ -506,13 +506,7 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
     if full_config.get('gradient_checkpointing', False):
         enable_gradient_checkpointing(model)
 
-    # Compile model for faster training (PyTorch 2.0+)
-    if full_config.get('compile', True) and device == 'cuda':
-        print("Compiling model with torch.compile()...")
-        model = torch.compile(model, mode=full_config.get('compile_mode', 'default'))
-        print("Model compiled!")
-
-    # Find optimal batch size
+    # Find optimal batch size (BEFORE compilation to avoid recompiling for each test)
     if full_config.get('auto_batch_size', True) and device == 'cuda':
         max_batch = find_max_batch_size(
             model=model,
@@ -537,6 +531,14 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
 
     full_config['actual_batch_size'] = actual_batch_size
     full_config['accumulation_steps'] = accumulation_steps
+
+    # Compile model for faster training (PyTorch 2.0+)
+    # Done AFTER batch size detection to avoid recompiling for each test
+    if full_config.get('compile', True) and device == 'cuda':
+        print(f"Compiling model with torch.compile(mode='{full_config.get('compile_mode', 'max-autotune')}')...")
+        print("  (This may take 2-5 minutes with max-autotune, but speeds up training significantly)")
+        model = torch.compile(model, mode=full_config.get('compile_mode', 'max-autotune'))
+        print("Model compiled!")
 
     # Create dataloaders
     train_loader, val_loader, tokenizer = create_wikipedia_dataloaders(
