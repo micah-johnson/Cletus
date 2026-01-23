@@ -27,11 +27,11 @@ def load_model(checkpoint_path: str, device: str = 'cuda', force_flash: bool = N
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config = checkpoint.get('config', {})
 
-    # Determine model type
+    # Determine model type (default to flash)
     if force_flash is not None:
         use_flash = force_flash
     else:
-        use_flash = config.get('use_flash_attention', False)
+        use_flash = config.get('use_flash_attention', True)
 
     ModelClass = FlashRecursiveTransformer if use_flash else RecursiveTransformer
     model_type = "FlashRecursiveTransformer" if use_flash else "RecursiveTransformer"
@@ -99,7 +99,7 @@ def generate(
 
 
 def interactive_demo(
-    model: RecursiveTransformer,
+    model: Union[RecursiveTransformer, FlashRecursiveTransformer],
     tokenizer,
     device: str,
     max_tokens: int = 50,
@@ -201,6 +201,10 @@ def main():
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     parser.add_argument('--prompt', type=str, default=None,
                         help='Single prompt (non-interactive mode)')
+    parser.add_argument('--flash', dest='use_flash', action='store_true', default=True,
+                        help='Use FlashRecursiveTransformer (default)')
+    parser.add_argument('--no-flash', dest='use_flash', action='store_false',
+                        help='Use standard RecursiveTransformer')
 
     args = parser.parse_args()
 
@@ -210,7 +214,7 @@ def main():
         args.device = 'cpu'
 
     # Load model and tokenizer
-    model, config = load_model(args.checkpoint, args.device)
+    model, config = load_model(args.checkpoint, args.device, force_flash=args.use_flash)
     tokenizer = get_tokenizer()
 
     if args.prompt:
