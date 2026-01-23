@@ -52,7 +52,8 @@ def extract_cross_attention_by_iteration(
 
     Args:
         cross_attention_weights: List[iteration][layer] of attention weight tensors
-            Each tensor has shape [batch, num_heads, seq_len, num_prev_iters * seq_len]
+            Each tensor has shape [batch, seq_len, num_prev_iters * seq_len] (averaged over heads)
+            or [batch, num_heads, seq_len, num_prev_iters * seq_len]
         seq_len: Sequence length
 
     Returns:
@@ -71,9 +72,17 @@ def extract_cross_attention_by_iteration(
         iter_results = {}
 
         for layer_idx, attn in enumerate(layer_attns):
-            # attn shape: [batch, num_heads, seq_len, num_prev_iters * seq_len]
             if attn is None:
                 continue
+
+            # Handle different attention weight shapes
+            # PyTorch MultiheadAttention returns [batch, seq_len, seq_len] when average_attn_weights=True (default)
+            # or [batch, num_heads, seq_len, seq_len] when average_attn_weights=False
+            if attn.dim() == 3:
+                # Shape: [batch, q_len, kv_len] - already averaged over heads
+                batch_size, q_len, kv_len = attn.shape
+                # Add head dim for consistent processing
+                attn = attn.unsqueeze(1)  # [batch, 1, q_len, kv_len]
 
             batch_size, num_heads, q_len, kv_len = attn.shape
 
