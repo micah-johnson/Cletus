@@ -26,6 +26,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
+from torch.utils.checkpoint import checkpoint
 
 from model import RecursiveTransformer, compute_loss
 from dataset_tinystories import create_tinystories_dataloaders, get_tokenizer, TINYSTORIES_VOCAB_SIZE
@@ -288,6 +289,60 @@ def compute_batch_settings(
 
 
 # =============================================================================
+# Gradient Checkpointing
+# =============================================================================
+
+def enable_gradient_checkpointing(model: RecursiveTransformer):
+    """
+    Enable gradient checkpointing for the model's transformer layers.
+
+    This saves memory by not storing intermediate activations during the forward
+    pass, recomputing them during the backward pass instead. Trades compute for
+    memory - typically ~30% slower but uses significantly less GPU memory.
+    """
+    def make_checkpointed_forward(original_forward):
+        def checkpointed_forward(x, previous_states=None, attn_mask=None, return_attention=False):
+            # checkpoint requires all inputs to be tensors or None
+            # We need to handle previous_states (list of tensors) specially
+            if previous_states is not None and len(previous_states) > 0:
+                # Concatenate for checkpointing, will be handled inside the layer
+                pass
+
+            def custom_forward(x, attn_mask, return_attention_flag):
+                return original_forward(x, previous_states, attn_mask, bool(return_attention_flag))
+
+            # Use checkpoint - recomputes forward during backward
+            return checkpoint(
+                custom_forward,
+                x, attn_mask, torch.tensor(return_attention),
+                use_reentrant=False
+            )
+        return checkpointed_forward
+
+    # Wrap each layer's forward method
+    for layer in model.layers:
+        layer._original_forward = layer.forward
+        layer.forward = make_checkpointed_forward(layer._original_forward)
+
+    model._gradient_checkpointing_enabled = True
+    print("Gradient checkpointing enabled")
+
+
+def disable_gradient_checkpointing(model: RecursiveTransformer):
+    """Disable gradient checkpointing and restore original forward methods."""
+    if not getattr(model, '_gradient_checkpointing_enabled', False):
+        return
+
+    for layer in model.layers:
+        if hasattr(layer, '_original_forward'):
+            layer.forward = layer._original_forward
+            delattr(layer, '_original_forward')
+
+    model._gradient_checkpointing_enabled = False
+    print("Gradient checkpointing disabled")
+
+
+# =============================================================================
 # Loss Function
 # =============================================================================
 
@@ -416,9 +471,15 @@ class TinyStoriesTrainer:
         val_loader: DataLoader,
         config: Dict,
         device: str = 'cuda',
-        accumulation_steps: int = 1
+        accumulation_steps: int = 1,
+        gradient_checkpointing: bool = False
     ):
         self.model = model.to(device)
+
+        # Enable gradient checkpointing if requested
+        self.gradient_checkpointing = gradient_checkpointing
+        if gradient_checkpointing:
+            enable_gradient_checkpointing(self.model)
         self.tokenizer = tokenizer
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -603,6 +664,7 @@ class TinyStoriesTrainer:
         print(f"Accumulation steps: {self.accumulation_steps}")
         print(f"Effective batch size: {effective_batch_size}")
         print(f"Max iterations: {self.model.max_iterations}")
+        print(f"Gradient checkpointing: {self.gradient_checkpointing}")
         print_gpu_memory()
         print("-" * 60)
 
@@ -696,7 +758,8 @@ class TinyStoriesTrainer:
             'best_val_loss': self.best_val_loss,
             'history': dict(self.history),
             'global_step': self.global_step,
-            'accumulation_steps': self.accumulation_steps
+            'accumulation_steps': self.accumulation_steps,
+            'gradient_checkpointing': self.gradient_checkpointing
         }, path)
 
     def load_checkpoint(self, path: str) -> int:
@@ -788,7 +851,8 @@ def train_tinystories(config: Dict = None, resume_from: str = None):
         val_loader=val_loader,
         config=config,
         device=device,
-        accumulation_steps=accumulation_steps
+        accumulation_steps=accumulation_steps,
+        gradient_checkpointing=config.get('gradient_checkpointing', False)
     )
 
     # Resume if needed
@@ -821,6 +885,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
     parser.add_argument('--resume', type=str, default=None, help='Checkpoint to resume from')
     parser.add_argument('--save-dir', type=str, default='checkpoints_tinystories', help='Save directory')
+    parser.add_argument('--gradient-checkpointing', action='store_true',
+                        help='Enable gradient checkpointing to save memory (slower but uses less VRAM)')
 
     args = parser.parse_args()
 
@@ -849,6 +915,7 @@ if __name__ == '__main__':
         'iteration_cost': 0.01,
         'done_supervision_weight': 0.5,
         'use_amp': True,
+        'gradient_checkpointing': args.gradient_checkpointing,
 
         'save_dir': args.save_dir,
         'log_interval': 100,
