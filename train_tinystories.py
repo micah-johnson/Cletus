@@ -292,64 +292,188 @@ def compute_batch_settings(
 # Gradient Checkpointing
 # =============================================================================
 
-def enable_gradient_checkpointing(model: RecursiveTransformer):
+def enable_gradient_checkpointing(model: RecursiveTransformer, checkpoint_every: int = 3):
     """
-    Enable gradient checkpointing for the model's transformer layers.
+    Enable gradient checkpointing at the iteration level.
 
-    This saves memory by not storing intermediate activations during the forward
-    pass, recomputing them during the backward pass instead. Trades compute for
-    memory - typically ~30% slower but uses significantly less GPU memory.
+    Instead of checkpointing every layer, we checkpoint every N iterations.
+    This reduces overhead while still saving significant memory.
 
-    Note: For the recursive transformer, we must snapshot previous_states at
-    checkpoint time since the list grows with each iteration.
+    Args:
+        model: The RecursiveTransformer model
+        checkpoint_every: Checkpoint every N iterations (default: 3)
     """
-    def make_checkpointed_forward(original_forward):
-        def checkpointed_forward(x, previous_states=None, attn_mask=None, return_attention=False):
-            # Snapshot previous_states at checkpoint time to avoid issues with
-            # the list growing during iteration. We concatenate into a single
-            # tensor (or use None) so checkpoint sees consistent shapes.
-            if previous_states is not None and len(previous_states) > 0:
-                # Stack into single tensor: [num_prev, batch, seq, d_model]
-                prev_stacked = torch.stack(previous_states, dim=0)
-                num_prev = len(previous_states)
+    original_forward = model.forward
+
+    def checkpointed_forward(
+        input_ids: torch.Tensor,
+        attention_mask=None,
+        threshold: float = 0.5,
+        return_all_states: bool = False,
+        force_iterations=None,
+        detach_hidden: bool = False
+    ):
+        import math
+
+        batch_size, seq_len = input_ids.shape
+        device = input_ids.device
+
+        # Token + position embeddings
+        positions = torch.arange(seq_len, device=device).unsqueeze(0).expand(batch_size, -1)
+        x = model.embedding(input_ids) * math.sqrt(model.d_model)
+        x = x + model.pos_embedding(positions)
+
+        # Create causal mask
+        causal_mask = torch.triu(
+            torch.ones(seq_len, seq_len, device=device, dtype=torch.bool),
+            diagonal=1
+        )
+
+        all_hidden_states = []
+        all_done_logits = []
+        all_done_probs = []
+        all_outputs = []
+        cross_attention_weights = []
+
+        def run_iteration(x, iteration, prev_states_stacked, num_prev):
+            """Run a single iteration through all layers."""
+            # Reconstruct previous_states list
+            if prev_states_stacked is not None and num_prev > 0:
+                previous_states = [prev_states_stacked[i] for i in range(num_prev)]
+            else:
+                previous_states = []
+
+            # Add iteration embedding
+            iter_emb = model.iteration_embedding(
+                torch.full((x.size(0),), iteration, device=x.device, dtype=torch.long)
+            ).unsqueeze(1)
+            x_iter = x + iter_emb
+
+            # Forward through layers
+            layer_cross_attns = []
+            for layer in model.layers:
+                x_iter, cross_attn = layer(
+                    x_iter,
+                    previous_states=previous_states if previous_states else None,
+                    attn_mask=causal_mask,
+                    return_attention=return_all_states
+                )
+                if cross_attn is not None:
+                    layer_cross_attns.append(cross_attn)
+
+            return x_iter, layer_cross_attns
+
+        max_iters = force_iterations if force_iterations is not None else model.max_iterations
+
+        for iteration in range(max_iters):
+            # Stack previous states for checkpointing
+            if all_hidden_states:
+                prev_stacked = torch.stack(all_hidden_states, dim=0)
+                num_prev = len(all_hidden_states)
             else:
                 prev_stacked = None
                 num_prev = 0
 
-            def custom_forward(x, prev_stacked, attn_mask, num_prev_tensor):
-                # Reconstruct previous_states list from stacked tensor
-                if prev_stacked is not None:
-                    prev_list = [prev_stacked[i] for i in range(int(num_prev_tensor.item()))]
-                else:
-                    prev_list = None
-                return original_forward(x, prev_list, attn_mask, bool(return_attention))
-
-            # Use checkpoint - recomputes forward during backward
-            return checkpoint(
-                custom_forward,
-                x, prev_stacked, attn_mask, torch.tensor(num_prev, dtype=torch.long),
-                use_reentrant=False
+            # Checkpoint every N iterations (but not the last one to avoid issues)
+            should_checkpoint = (
+                model.training and
+                iteration % checkpoint_every == 0 and
+                iteration < max_iters - 1
             )
-        return checkpointed_forward
 
-    # Wrap each layer's forward method
-    for layer in model.layers:
-        layer._original_forward = layer.forward
-        layer.forward = make_checkpointed_forward(layer._original_forward)
+            if should_checkpoint:
+                # Use checkpoint for this iteration
+                def ckpt_fn(x, iter_tensor, prev_stacked, num_prev_tensor):
+                    return run_iteration(
+                        x,
+                        int(iter_tensor.item()),
+                        prev_stacked,
+                        int(num_prev_tensor.item()) if num_prev_tensor is not None else 0
+                    )
 
+                x_iter, layer_cross_attns = checkpoint(
+                    ckpt_fn,
+                    x, torch.tensor(iteration), prev_stacked,
+                    torch.tensor(num_prev) if num_prev > 0 else None,
+                    use_reentrant=False
+                )
+            else:
+                # Run without checkpointing
+                x_iter, layer_cross_attns = run_iteration(x, iteration, prev_stacked, num_prev)
+
+            if layer_cross_attns:
+                cross_attention_weights.append(layer_cross_attns)
+
+            # Store hidden states
+            if detach_hidden:
+                all_hidden_states.append(x_iter.detach().clone())
+            else:
+                all_hidden_states.append(x_iter)
+
+            # Compute output at this iteration
+            iter_output = model.output_head(model.output_norm(x_iter))
+            all_outputs.append(iter_output)
+
+            # Per-position done classification
+            done_logits = model.done_classifier(x_iter)
+            all_done_logits.append(done_logits)
+            done_probs = torch.sigmoid(done_logits)
+            all_done_probs.append(done_probs)
+
+            # Update x for next iteration
+            x = x_iter
+
+            # Early stopping conditions
+            if force_iterations is not None:
+                if iteration + 1 >= force_iterations:
+                    break
+            elif not model.training:
+                if done_probs.min() > threshold:
+                    break
+
+        num_iterations = iteration + 1
+
+        # Stack per-iteration tensors
+        stacked_done_logits = torch.stack(all_done_logits, dim=1)
+        stacked_done_probs = torch.stack(all_done_probs, dim=1)
+
+        # Compute per-position iteration counts
+        with torch.no_grad():
+            done_mask = stacked_done_probs > threshold
+            first_done = torch.argmax(done_mask.int(), dim=1) + 1
+            never_done = ~done_mask.any(dim=1)
+            first_done[never_done] = num_iterations
+            iterations_per_position = first_done.float()
+
+        output = all_outputs[-1]
+
+        metadata = {
+            'num_iterations': num_iterations,
+            'done_logits': stacked_done_logits,
+            'done_probs': stacked_done_probs,
+            'iterations_per_position': iterations_per_position,
+            'all_outputs': all_outputs,
+            'all_hidden_states': all_hidden_states if return_all_states else None,
+            'cross_attention_weights': cross_attention_weights if return_all_states else None
+        }
+
+        return output, metadata
+
+    model._original_forward = original_forward
+    model.forward = checkpointed_forward
     model._gradient_checkpointing_enabled = True
-    print("Gradient checkpointing enabled")
+    model._checkpoint_every = checkpoint_every
+    print(f"Gradient checkpointing enabled (every {checkpoint_every} iterations)")
 
 
 def disable_gradient_checkpointing(model: RecursiveTransformer):
-    """Disable gradient checkpointing and restore original forward methods."""
+    """Disable gradient checkpointing and restore original forward method."""
     if not getattr(model, '_gradient_checkpointing_enabled', False):
         return
 
-    for layer in model.layers:
-        if hasattr(layer, '_original_forward'):
-            layer.forward = layer._original_forward
-            delattr(layer, '_original_forward')
+    if hasattr(model, '_original_forward'):
+        model.forward = model._original_forward
+        delattr(model, '_original_forward')
 
     model._gradient_checkpointing_enabled = False
     print("Gradient checkpointing disabled")
