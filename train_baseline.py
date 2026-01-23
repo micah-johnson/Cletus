@@ -16,6 +16,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.amp import autocast
 from torch.amp import GradScaler
+from torch.utils.checkpoint import checkpoint
 
 from model import StandardWeightTiedTransformer, StandardTransformer, compute_loss_standard
 from dataset import create_dataloaders, ArithmeticTokenizer
@@ -31,6 +32,48 @@ def set_seed(seed: int):
         torch.cuda.manual_seed_all(seed)
 
 
+def enable_gradient_checkpointing_baseline(model):
+    """
+    Enable gradient checkpointing for baseline transformer models.
+
+    Works with both StandardWeightTiedTransformer and StandardTransformer.
+    Saves memory by recomputing activations during backward pass.
+    """
+    def make_checkpointed_forward(original_forward):
+        def checkpointed_forward(x, attn_mask=None):
+            def custom_forward(x, attn_mask):
+                return original_forward(x, attn_mask)
+
+            return checkpoint(
+                custom_forward,
+                x, attn_mask,
+                use_reentrant=False
+            )
+        return checkpointed_forward
+
+    # Wrap each layer's forward method
+    for layer in model.layers:
+        layer._original_forward = layer.forward
+        layer.forward = make_checkpointed_forward(layer._original_forward)
+
+    model._gradient_checkpointing_enabled = True
+    print("Gradient checkpointing enabled")
+
+
+def disable_gradient_checkpointing_baseline(model):
+    """Disable gradient checkpointing and restore original forward methods."""
+    if not getattr(model, '_gradient_checkpointing_enabled', False):
+        return
+
+    for layer in model.layers:
+        if hasattr(layer, '_original_forward'):
+            layer.forward = layer._original_forward
+            delattr(layer, '_original_forward')
+
+    model._gradient_checkpointing_enabled = False
+    print("Gradient checkpointing disabled")
+
+
 class BaselineTrainer:
     """Training handler for StandardWeightTiedTransformer."""
 
@@ -41,9 +84,16 @@ class BaselineTrainer:
         train_loader: DataLoader,
         val_loader: DataLoader,
         config: Dict,
-        device: str = 'cuda'
+        device: str = 'cuda',
+        gradient_checkpointing: bool = False
     ):
         self.model = model.to(device)
+
+        # Enable gradient checkpointing if requested
+        self.gradient_checkpointing = gradient_checkpointing
+        if gradient_checkpointing:
+            enable_gradient_checkpointing_baseline(self.model)
+
         self.tokenizer = tokenizer
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -192,6 +242,7 @@ class BaselineTrainer:
             print(f"Effective depth: {self.model.effective_depth} layers")
         else:
             print(f"Layers: {self.model.n_layers}")
+        print(f"Gradient checkpointing: {self.gradient_checkpointing}")
         print("-" * 60)
 
         for epoch in range(epochs):
@@ -241,17 +292,19 @@ class BaselineTrainer:
             'scheduler_state_dict': self.scheduler.state_dict(),
             'config': self.config,
             'best_val_loss': self.best_val_loss,
-            'history': dict(self.history)
+            'history': dict(self.history),
+            'gradient_checkpointing': self.gradient_checkpointing
         }, path)
 
 
-def train_baseline(config: Dict, model_type: str = 'weight_tied'):
+def train_baseline(config: Dict, model_type: str = 'weight_tied', gradient_checkpointing: bool = False):
     """Main training function for baseline models.
 
     Args:
         config: Training configuration dict
         model_type: 'weight_tied' for StandardWeightTiedTransformer,
                    'standard_12m' for StandardTransformer (12M params)
+        gradient_checkpointing: Whether to use gradient checkpointing to save memory
     """
     # Device
     print(f"PyTorch version: {torch.__version__}")
@@ -310,7 +363,8 @@ def train_baseline(config: Dict, model_type: str = 'weight_tied'):
         train_loader=train_loader,
         val_loader=val_loader,
         config=config,
-        device=device
+        device=device,
+        gradient_checkpointing=gradient_checkpointing
     )
 
     # Train
@@ -341,6 +395,8 @@ def main():
     parser.add_argument('--lr', type=float, help='Override learning rate')
     parser.add_argument('--batch-size', type=int, help='Override batch size')
     parser.add_argument('--n-repeats', type=int, help='Override n_repeats (weight_tied only)')
+    parser.add_argument('--gradient-checkpointing', action='store_true',
+                        help='Enable gradient checkpointing to save memory (slower but uses less VRAM)')
 
     args = parser.parse_args()
 
@@ -378,7 +434,7 @@ def main():
     print(f"Training: {config.train.epochs} epochs, lr={config.train.learning_rate}")
     print("=" * 60 + "\n")
 
-    train_baseline(config.to_dict(), model_type=model_type)
+    train_baseline(config.to_dict(), model_type=model_type, gradient_checkpointing=args.gradient_checkpointing)
 
 
 if __name__ == '__main__':

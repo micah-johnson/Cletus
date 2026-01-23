@@ -476,10 +476,8 @@ class TinyStoriesTrainer:
     ):
         self.model = model.to(device)
 
-        # Enable gradient checkpointing if requested
-        self.gradient_checkpointing = gradient_checkpointing
-        if gradient_checkpointing:
-            enable_gradient_checkpointing(self.model)
+        # Track gradient checkpointing status (may already be enabled before trainer init)
+        self.gradient_checkpointing = gradient_checkpointing or getattr(self.model, '_gradient_checkpointing_enabled', False)
         self.tokenizer = tokenizer
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -816,8 +814,14 @@ def train_tinystories(config: Dict = None, resume_from: str = None):
 
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
-    # Compute batch size and accumulation
+    # Move model to device
     model_on_device = model.to(device)
+
+    # Enable gradient checkpointing BEFORE batch size detection so we get accurate memory estimates
+    if config.get('gradient_checkpointing', False):
+        enable_gradient_checkpointing(model_on_device)
+
+    # Compute batch size and accumulation
     actual_batch_size, accumulation_steps = compute_batch_settings(
         model=model_on_device,
         vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
