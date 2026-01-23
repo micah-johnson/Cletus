@@ -651,19 +651,19 @@ def compute_loss(
     per_iter_similarities = []
     done_targets_list = []
 
-    for iter_hidden in all_hidden_states:
-        # Cosine similarity to final hidden state, per position
-        iter_norm = F.normalize(iter_hidden, p=2, dim=-1)
-        final_norm = F.normalize(final_hidden, p=2, dim=-1)
-        similarity = (iter_norm * final_norm).sum(dim=-1)  # [batch, seq_len]
+    # Stack all hidden states: [num_iters, batch, seq_len, d_model]
+    stacked_hidden = torch.stack(all_hidden_states, dim=0)
 
-        # Threshold for "converged"
-        converged = (similarity > convergence_threshold).float()
-        done_targets_list.append(converged)
-        per_iter_similarities.append(similarity.mean().item())
+    # Normalize all at once
+    stacked_norm = F.normalize(stacked_hidden, p=2, dim=-1)
+    final_norm = stacked_norm[-1]  # [batch, seq_len, d_model]
 
-    # Stack: [batch, num_iters, seq_len]
-    done_targets = torch.stack(done_targets_list, dim=1)
+    # Broadcast similarity: [num_iters, batch, seq_len]
+    similarities = (stacked_norm * final_norm.unsqueeze(0)).sum(dim=-1)
+
+    # Threshold
+    done_targets = (similarities > convergence_threshold).float()
+    done_targets = done_targets.permute(1, 0, 2)  # [batch, num_iters, seq_len]
 
     # Cumulative max over iterations: once converged, stays "done"
     done_targets_cummax, _ = torch.cummax(done_targets, dim=1)
