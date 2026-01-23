@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from torch.utils.checkpoint import checkpoint
 
-from model import RecursiveTransformer, compute_loss
+from model import RecursiveTransformer, FlashRecursiveTransformer, compute_loss
 from dataset_tinystories import create_tinystories_dataloaders, get_tokenizer, TINYSTORIES_VOCAB_SIZE
 from config import ExperimentConfig, ModelConfig, DataConfig, TrainConfig
 
@@ -938,7 +938,10 @@ def train_tinystories(config: Dict = None, resume_from: str = None):
     tokenizer = get_tokenizer(config.get('tokenizer_name', 'EleutherAI/gpt-neo-125M'))
 
     # Create model (use 10K vocab like TinyStories paper)
-    model = RecursiveTransformer(
+    use_flash = config.get('use_flash_attention', False)
+    ModelClass = FlashRecursiveTransformer if use_flash else RecursiveTransformer
+
+    model = ModelClass(
         vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
         d_model=config.get('d_model', 256),
         n_heads=config.get('n_heads', 4),
@@ -949,6 +952,8 @@ def train_tinystories(config: Dict = None, resume_from: str = None):
         max_seq_len=config.get('max_seq_len', 256)
     )
 
+    model_type = "FlashRecursiveTransformer" if use_flash else "RecursiveTransformer"
+    print(f"Model: {model_type}")
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # Move model to device
@@ -1028,6 +1033,8 @@ if __name__ == '__main__':
     parser.add_argument('--save-dir', type=str, default='checkpoints_tinystories', help='Save directory')
     parser.add_argument('--gradient-checkpointing', action='store_true',
                         help='Enable gradient checkpointing to save memory (slower but uses less VRAM)')
+    parser.add_argument('--flash', action='store_true',
+                        help='Use FlashRecursiveTransformer with previous-only cross-attention')
 
     args = parser.parse_args()
 
@@ -1057,6 +1064,7 @@ if __name__ == '__main__':
         'done_supervision_weight': 0.5,
         'use_amp': True,
         'gradient_checkpointing': args.gradient_checkpointing,
+        'use_flash_attention': args.flash,
 
         'save_dir': args.save_dir,
         'log_interval': 100,

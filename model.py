@@ -980,3 +980,379 @@ class StandardTransformer(nn.Module):
 
     def count_parameters(self) -> int:
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
+
+# =============================================================================
+# FLASH ATTENTION: Previous-Only Cross-Attention Model
+# =============================================================================
+
+class FlashRecursiveTransformerLayer(nn.Module):
+    """
+    Transformer layer with FlashAttention and previous-only cross-attention.
+
+    Key differences from RecursiveTransformerLayer:
+    - Uses F.scaled_dot_product_attention (FlashAttention when available)
+    - Cross-attention only to immediately previous iteration (not all previous)
+    - Packed QKV projections for efficiency
+    """
+
+    def __init__(
+        self,
+        d_model: int,
+        n_heads: int,
+        d_ff: int,
+        dropout: float = 0.1,
+        max_seq_len: int = 2048
+    ):
+        super().__init__()
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.head_dim = d_model // n_heads
+
+        assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
+
+        # Self-attention: packed QKV projection
+        self.self_qkv = nn.Linear(d_model, 3 * d_model, bias=False)
+        self.self_out = nn.Linear(d_model, d_model, bias=False)
+        self.norm1 = RMSNorm(d_model)
+
+        # Cross-attention: separate Q and packed KV
+        self.cross_q = nn.Linear(d_model, d_model, bias=False)
+        self.cross_kv = nn.Linear(d_model, 2 * d_model, bias=False)
+        self.cross_out = nn.Linear(d_model, d_model, bias=False)
+        self.norm2 = RMSNorm(d_model)
+
+        # Feedforward: SwiGLU variant
+        self.ff_gate = nn.Linear(d_model, d_ff, bias=False)
+        self.ff_up = nn.Linear(d_model, d_ff, bias=False)
+        self.ff_down = nn.Linear(d_ff, d_model, bias=False)
+        self.norm3 = RMSNorm(d_model)
+
+        # Learnable gate for cross-attention (initialized to 0 - starts ignoring)
+        self.cross_attn_gate = nn.Parameter(torch.zeros(1))
+
+        self.dropout = nn.Dropout(dropout)
+        self.attn_dropout = dropout
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        prev_state: Optional[torch.Tensor] = None,
+        is_causal: bool = True
+    ) -> torch.Tensor:
+        """
+        Args:
+            x: [batch_size, seq_len, d_model] current hidden states
+            prev_state: [batch_size, seq_len, d_model] previous iteration's hidden states
+            is_causal: Whether to use causal masking
+
+        Returns:
+            x: Updated hidden states
+        """
+        batch_size, seq_len, _ = x.shape
+
+        # 1. Self-attention with pre-norm
+        residual = x
+        x_norm = self.norm1(x)
+
+        # Packed QKV projection and reshape
+        qkv = self.self_qkv(x_norm)  # [B, S, 3*D]
+        qkv = qkv.view(batch_size, seq_len, 3, self.n_heads, self.head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)  # [3, B, H, S, D_head]
+        q, k, v = qkv[0], qkv[1], qkv[2]  # Each: [B, H, S, D_head]
+
+        # FlashAttention via scaled_dot_product_attention
+        attn_out = F.scaled_dot_product_attention(
+            q, k, v,
+            dropout_p=self.attn_dropout if self.training else 0.0,
+            is_causal=is_causal
+        )  # [B, H, S, D_head]
+
+        # Reshape and project output
+        attn_out = attn_out.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d_model)
+        attn_out = self.self_out(attn_out)
+        x = residual + self.dropout(attn_out)
+
+        # 2. Cross-attention to previous iteration (if provided)
+        if prev_state is not None:
+            residual = x
+            x_norm = self.norm2(x)
+            prev_norm = self.norm2(prev_state)  # Also normalize prev_state
+
+            # Q from current, KV from previous
+            q = self.cross_q(x_norm)  # [B, S, D]
+            kv = self.cross_kv(prev_norm)  # [B, S, 2*D]
+
+            # Reshape for attention
+            q = q.view(batch_size, seq_len, self.n_heads, self.head_dim).transpose(1, 2)  # [B, H, S, D_head]
+            kv = kv.view(batch_size, seq_len, 2, self.n_heads, self.head_dim)
+            kv = kv.permute(2, 0, 3, 1, 4)  # [2, B, H, S, D_head]
+            k, v = kv[0], kv[1]
+
+            # FlashAttention for cross-attention (causal - position i attends to positions 0..i from prev)
+            cross_out = F.scaled_dot_product_attention(
+                q, k, v,
+                dropout_p=self.attn_dropout if self.training else 0.0,
+                is_causal=is_causal
+            )  # [B, H, S, D_head]
+
+            # Reshape and project
+            cross_out = cross_out.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d_model)
+            cross_out = self.cross_out(cross_out)
+
+            # Gated addition
+            gate = torch.sigmoid(self.cross_attn_gate)
+            x = residual + gate * self.dropout(cross_out)
+
+        # 3. Feedforward with SwiGLU and pre-norm
+        residual = x
+        x_norm = self.norm3(x)
+
+        # SwiGLU: gate * silu(gate) * up
+        gate_out = self.ff_gate(x_norm)
+        up_out = self.ff_up(x_norm)
+        ff_out = F.silu(gate_out) * up_out
+        ff_out = self.ff_down(ff_out)
+
+        x = residual + self.dropout(ff_out)
+
+        return x
+
+
+class FlashRecursiveTransformer(nn.Module):
+    """
+    Recursive Transformer with FlashAttention and previous-only cross-attention.
+
+    Key differences from RecursiveTransformer:
+    - Uses FlashAttention via F.scaled_dot_product_attention
+    - Cross-attention only to immediately previous iteration (O(N) vs O(N²))
+    - Simpler iteration loop with single prev_state tensor
+    """
+
+    def __init__(
+        self,
+        vocab_size: int = 32000,
+        d_model: int = 512,
+        n_heads: int = 8,
+        n_layers: int = 6,
+        d_ff: int = 2048,
+        max_iterations: int = 8,
+        dropout: float = 0.1,
+        max_seq_len: int = 512
+    ):
+        super().__init__()
+
+        self.d_model = d_model
+        self.max_iterations = max_iterations
+        self.vocab_size = vocab_size
+        self.max_seq_len = max_seq_len
+        self.n_layers = n_layers
+
+        # Token embedding
+        self.embedding = nn.Embedding(vocab_size, d_model)
+
+        # Learned position embeddings
+        self.pos_embedding = nn.Embedding(max_seq_len, d_model)
+
+        # FlashAttention transformer layers
+        self.layers = nn.ModuleList([
+            FlashRecursiveTransformerLayer(d_model, n_heads, d_ff, dropout, max_seq_len)
+            for _ in range(n_layers)
+        ])
+
+        # Done classifier - learns when to stop
+        self.done_classifier = DoneClassifier(d_model)
+
+        # Output projection
+        self.output_norm = RMSNorm(d_model)
+        self.output_head = nn.Linear(d_model, vocab_size, bias=False)
+
+        # Tie input and output embeddings
+        self.output_head.weight = self.embedding.weight
+
+        # Iteration embedding
+        self.iteration_embedding = nn.Embedding(max_iterations, d_model)
+
+        # Initialize weights
+        self._init_weights()
+
+    def _init_weights(self):
+        """Initialize weights with small values for stable training."""
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+                if module.bias is not None:
+                    torch.nn.init.zeros_(module.bias)
+            elif isinstance(module, nn.Embedding):
+                torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        threshold: float = 0.5,
+        return_all_states: bool = False,
+        force_iterations: Optional[int] = None,
+        detach_hidden: bool = False
+    ) -> Tuple[torch.Tensor, Dict]:
+        """
+        Forward pass with previous-only cross-attention.
+
+        Args:
+            input_ids: [batch_size, seq_len] input token IDs
+            attention_mask: [batch_size, seq_len] attention mask (1 = attend, 0 = ignore)
+            threshold: Done probability threshold for early stopping (inference only)
+            return_all_states: Whether to return hidden states from all iterations
+            force_iterations: If set, run exactly this many iterations
+            detach_hidden: If True, detach hidden states (saves memory)
+
+        Returns:
+            output: [batch_size, seq_len, vocab_size] logits
+            metadata: Dict with per-position iteration info
+        """
+        batch_size, seq_len = input_ids.shape
+        device = input_ids.device
+
+        # Token + position embeddings
+        positions = torch.arange(seq_len, device=device).unsqueeze(0).expand(batch_size, -1)
+        x = self.embedding(input_ids) * math.sqrt(self.d_model)
+        x = x + self.pos_embedding(positions)
+
+        all_hidden_states = []
+        all_done_logits = []
+        all_done_probs = []
+        all_outputs = []
+
+        prev_state = None  # Only track immediately previous iteration
+
+        for iteration in range(self.max_iterations):
+            # Add iteration embedding
+            iter_emb = self.iteration_embedding(
+                torch.full((batch_size,), iteration, device=device, dtype=torch.long)
+            ).unsqueeze(1)
+            x_iter = x + iter_emb
+
+            # Forward through layers with cross-attention to previous iteration only
+            for layer in self.layers:
+                x_iter = layer(x_iter, prev_state=prev_state, is_causal=True)
+
+            # Store this iteration's hidden states (for gradient flow)
+            if detach_hidden:
+                all_hidden_states.append(x_iter.detach().clone())
+            else:
+                all_hidden_states.append(x_iter)
+
+            # Compute output at this iteration
+            iter_output = self.output_head(self.output_norm(x_iter))
+            all_outputs.append(iter_output)
+
+            # Per-position done classification
+            done_logits = self.done_classifier(x_iter)
+            all_done_logits.append(done_logits)
+            done_probs = torch.sigmoid(done_logits)
+            all_done_probs.append(done_probs)
+
+            # Update prev_state for next iteration
+            prev_state = x_iter
+
+            # Update x for next iteration
+            x = x_iter
+
+            # Early stopping conditions
+            if force_iterations is not None:
+                if iteration + 1 >= force_iterations:
+                    break
+            elif not self.training:
+                if done_probs.min() > threshold:
+                    break
+
+        num_iterations = iteration + 1
+
+        # Stack per-iteration tensors
+        stacked_done_logits = torch.stack(all_done_logits, dim=1)
+        stacked_done_probs = torch.stack(all_done_probs, dim=1)
+
+        # Compute per-position iteration counts
+        with torch.no_grad():
+            done_mask = stacked_done_probs > threshold
+            first_done = torch.argmax(done_mask.int(), dim=1) + 1
+            never_done = ~done_mask.any(dim=1)
+            first_done[never_done] = num_iterations
+            iterations_per_position = first_done.float()
+
+        # Final output from last iteration
+        output = all_outputs[-1]
+
+        metadata = {
+            'num_iterations': num_iterations,
+            'done_logits': stacked_done_logits,
+            'done_probs': stacked_done_probs,
+            'iterations_per_position': iterations_per_position,
+            'all_outputs': all_outputs,
+            'all_hidden_states': all_hidden_states if return_all_states else None,
+            'cross_attention_weights': None  # Not tracked in flash version
+        }
+
+        return output, metadata
+
+    def get_gate_values(self) -> List[float]:
+        """Return current cross-attention gate values for each layer."""
+        return [torch.sigmoid(layer.cross_attn_gate).item() for layer in self.layers]
+
+    @torch.no_grad()
+    def generate(
+        self,
+        input_ids: torch.Tensor,
+        max_new_tokens: int = 32,
+        threshold: float = 0.5,
+        temperature: float = 1.0,
+        top_k: Optional[int] = None,
+        eos_token_id: Optional[int] = None,
+        pad_token_id: Optional[int] = None
+    ) -> Tuple[torch.Tensor, List[int]]:
+        """
+        Autoregressive generation with per-token iteration tracking.
+        """
+        batch_size = input_ids.size(0)
+        device = input_ids.device
+
+        current_ids = input_ids.clone()
+        iterations_per_token = []
+        finished = torch.zeros(batch_size, dtype=torch.bool, device=device)
+
+        for _ in range(max_new_tokens):
+            # Forward pass
+            output, metadata = self(current_ids, threshold=threshold)
+
+            iterations_per_token.append(metadata['num_iterations'])
+
+            # Get logits for last position
+            logits = output[:, -1, :]  # [batch, vocab]
+
+            # Apply temperature
+            if temperature != 1.0:
+                logits = logits / temperature
+
+            # Apply top-k filtering
+            if top_k is not None:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = float('-inf')
+
+            # Sample
+            probs = F.softmax(logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1)  # [batch, 1]
+
+            # Handle finished sequences
+            if eos_token_id is not None:
+                just_finished = (next_token.squeeze(-1) == eos_token_id)
+                finished = finished | just_finished
+
+                if pad_token_id is not None:
+                    next_token[finished.unsqueeze(-1).expand_as(next_token)] = pad_token_id
+
+            current_ids = torch.cat([current_ids, next_token], dim=1)
+
+            if finished.all():
+                break
+
+        return current_ids, iterations_per_token

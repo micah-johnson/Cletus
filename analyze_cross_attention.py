@@ -237,42 +237,63 @@ def print_attention_analysis(stats: Dict):
 
     # Summary statistics
     print("\n" + "-" * 70)
-    print("SUMMARY: Attention Distribution by Recency")
+    print("SUMMARY: Attention to Specific Iterations")
     print("-" * 70)
 
-    # Aggregate by "how many steps back"
-    recency_attention = defaultdict(list)
-    for curr_iter, prev_attns in rel_attn.items():
-        for prev_iter, attn in prev_attns.items():
-            steps_back = curr_iter - prev_iter
-            recency_attention[steps_back].append(attn)
+    # Compute attention to iteration 0 vs others (excluding iter 1 which only has iter 0)
+    iter0_attention = []
+    immediate_prev_attention = []
+    middle_attention = []
 
-    print("\nAverage relative attention by recency (how many iterations back):\n")
-    for steps_back in sorted(recency_attention.keys()):
-        mean_attn = np.mean(recency_attention[steps_back]) * 100
-        bar = "█" * int(mean_attn / 2)
-        label = "Previous" if steps_back == 1 else f"{steps_back} back"
-        print(f"  {label:>10}: {mean_attn:5.1f}% {bar}")
+    for curr_iter, prev_attns in rel_attn.items():
+        if curr_iter < 2:
+            continue  # Skip iter 1 - it only has iter 0
+
+        for prev_iter, attn in prev_attns.items():
+            if prev_iter == 0:
+                iter0_attention.append(attn)
+            elif prev_iter == curr_iter - 1:
+                immediate_prev_attention.append(attn)
+            else:
+                middle_attention.append(attn)
+
+    print("\nAttention distribution (from iterations 2+):\n")
+
+    if iter0_attention:
+        mean_iter0 = np.mean(iter0_attention) * 100
+        bar = "█" * int(mean_iter0 / 2)
+        print(f"  {'Iteration 0 (first)':>25}: {mean_iter0:5.1f}% {bar}")
+
+    if middle_attention:
+        mean_middle = np.mean(middle_attention) * 100
+        bar = "█" * int(mean_middle / 2)
+        print(f"  {'Middle iterations':>25}: {mean_middle:5.1f}% {bar}")
+
+    if immediate_prev_attention:
+        mean_prev = np.mean(immediate_prev_attention) * 100
+        bar = "█" * int(mean_prev / 2)
+        print(f"  {'Immediately previous':>25}: {mean_prev:5.1f}% {bar}")
 
     # Key insight
-    if recency_attention:
-        prev_1_attn = np.mean(recency_attention.get(1, [0])) * 100
-        other_attn = 100 - prev_1_attn
+    print("\n" + "-" * 70)
+    print("KEY INSIGHT:")
 
-        print("\n" + "-" * 70)
-        print("KEY INSIGHT:")
-        if prev_1_attn > 70:
-            print(f"  The model primarily attends to the PREVIOUS iteration ({prev_1_attn:.1f}%)")
-            print(f"  Only {other_attn:.1f}% of attention goes to earlier iterations.")
-            print("  → This suggests a 'chain of thought' pattern rather than global reasoning.")
-        elif prev_1_attn > 50:
-            print(f"  The model has a preference for the previous iteration ({prev_1_attn:.1f}%)")
-            print(f"  But {other_attn:.1f}% of attention still goes to earlier iterations.")
-            print("  → This suggests a mix of local and global reasoning.")
+    if iter0_attention and immediate_prev_attention:
+        mean_iter0 = np.mean(iter0_attention) * 100
+        mean_prev = np.mean(immediate_prev_attention) * 100
+
+        if mean_iter0 > 70:
+            print(f"  The model primarily attends to ITERATION 0 ({mean_iter0:.1f}%)")
+            print(f"  The immediately previous iteration only gets {mean_prev:.1f}%")
+            print("  → The model 'looks back to the beginning' rather than chaining thoughts.")
+            print("  → Iteration 0 contains the original token embeddings + first pass processing.")
+        elif mean_prev > 50:
+            print(f"  The model primarily attends to the IMMEDIATELY PREVIOUS iteration ({mean_prev:.1f}%)")
+            print(f"  Iteration 0 gets {mean_iter0:.1f}%")
+            print("  → This suggests a 'chain of thought' pattern.")
         else:
-            print(f"  The model distributes attention broadly across iterations.")
-            print(f"  Previous iteration only gets {prev_1_attn:.1f}% of attention.")
-            print("  → This suggests the model leverages information from all past iterations.")
+            print(f"  Attention is distributed: iter 0 gets {mean_iter0:.1f}%, previous gets {mean_prev:.1f}%")
+            print("  → The model uses a mix of initial and recent information.")
 
 
 def visualize_attention_heatmap(stats: Dict, save_path: Optional[str] = None):
