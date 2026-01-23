@@ -19,17 +19,26 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer
 
-from model import RecursiveTransformer
+from model import RecursiveTransformer, FlashRecursiveTransformer
 from dataset_tinystories import get_tokenizer, get_token_frequencies, TinyStoriesDatasetFinite, TINYSTORIES_VOCAB_SIZE
+
+# Union type for both model variants
+from typing import Union
+ModelType = Union[RecursiveTransformer, FlashRecursiveTransformer]
 from torch.utils.data import DataLoader
 
 
-def load_model(checkpoint_path: str, device: str = 'cuda') -> Tuple[RecursiveTransformer, Dict]:
-    """Load trained model from checkpoint."""
+def load_model(checkpoint_path: str, device: str = 'cuda') -> Tuple[ModelType, Dict]:
+    """Load trained model from checkpoint (auto-detects model type)."""
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config = checkpoint['config']
 
-    model = RecursiveTransformer(
+    # Auto-detect model type from config
+    use_flash = config.get('use_flash_attention', False)
+    ModelClass = FlashRecursiveTransformer if use_flash else RecursiveTransformer
+    model_type = "FlashRecursiveTransformer" if use_flash else "RecursiveTransformer"
+
+    model = ModelClass(
         vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
         d_model=config.get('d_model', 256),
         n_heads=config.get('n_heads', 4),
@@ -44,12 +53,13 @@ def load_model(checkpoint_path: str, device: str = 'cuda') -> Tuple[RecursiveTra
     model = model.to(device)
     model.eval()
 
+    print(f"Model type: {model_type}")
     return model, config
 
 
 @torch.no_grad()
 def analyze_generation(
-    model: RecursiveTransformer,
+    model: ModelType,
     tokenizer,
     prompt: str,
     max_tokens: int = 50,
@@ -254,7 +264,7 @@ def analyze_iteration_correlations(results: List[Dict]) -> Dict:
 
 
 def run_comprehensive_analysis(
-    model: RecursiveTransformer,
+    model: ModelType,
     tokenizer,
     token_frequencies: Optional[Dict[int, int]] = None,
     num_prompts: int = 10
@@ -327,7 +337,7 @@ def run_comprehensive_analysis(
 
 
 def analyze_specific_examples(
-    model: RecursiveTransformer,
+    model: ModelType,
     tokenizer,
     token_frequencies: Optional[Dict[int, int]] = None
 ):
@@ -367,7 +377,7 @@ def analyze_specific_examples(
 
 @torch.no_grad()
 def evaluate_ppl_at_iterations(
-    model: RecursiveTransformer,
+    model: ModelType,
     val_loader: DataLoader,
     max_iterations: int = 8,
     device: str = 'cuda',
@@ -481,7 +491,7 @@ def plot_ppl_vs_iterations(
 
 
 def run_iteration_sweep(
-    model: RecursiveTransformer,
+    model: ModelType,
     tokenizer,
     config: Dict,
     device: str = 'cuda',
@@ -579,7 +589,8 @@ def main():
     model, config = load_model(args.checkpoint, args.device)
     tokenizer = get_tokenizer()
 
-    print(f"Model: d_model={config.get('d_model')}, n_layers={config.get('n_layers')}, "
+    model_type = "Flash" if config.get('use_flash_attention', False) else "Standard"
+    print(f"Model ({model_type}): d_model={config.get('d_model')}, n_layers={config.get('n_layers')}, "
           f"max_iterations={config.get('max_iterations')}")
 
     # Iteration sweep analysis

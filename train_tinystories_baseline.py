@@ -1,14 +1,15 @@
 """
-Baseline training for TinyStories - NO recursive iterations.
+Baseline training for TinyStories - Standard Transformer (no recursion).
 
 This is the control experiment to verify that adaptive compute helps.
-Uses the same architecture but:
+Uses the same layer architecture (FlashAttention, SwiGLU) but:
 - No cross-attention between iterations
 - No done classifier
-- Fixed number of layer passes (weight-tied)
+- No weight tying or layer repeats
 - Standard LM loss only
+- ~80M parameters to match recursive model's effective compute
 
-Compare results with train_tinystories.py to isolate the effect of iterations.
+Compare results with train_tinystories.py to isolate the effect of recursion.
 """
 
 import os
@@ -24,14 +25,9 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 
-from model import StandardWeightTiedTransformer
+from model import StandardTransformer
 from dataset_tinystories import create_tinystories_dataloaders, get_tokenizer, TINYSTORIES_VOCAB_SIZE
-from train_tinystories import (
-    print_gpu_memory,
-    find_max_batch_size,
-    compute_batch_settings,
-    _test_batch_size,
-)
+from train_tinystories import print_gpu_memory
 
 
 def compute_baseline_loss(
@@ -41,7 +37,6 @@ def compute_baseline_loss(
     """
     Standard language modeling loss - no done classifier, no iteration cost.
     """
-    # Ignore index for padding
     ignore_idx = -100
 
     # Cross-entropy loss
@@ -73,12 +68,141 @@ def compute_baseline_loss(
     return loss, metrics
 
 
+def _test_batch_size_baseline(
+    model: StandardTransformer,
+    vocab_size: int,
+    seq_len: int,
+    batch_size: int,
+    device: str,
+    gpu_mem_gb: float,
+    use_amp: bool = True
+) -> Tuple[bool, float]:
+    """Test if a batch size fits for baseline model."""
+    try:
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+        torch.cuda.reset_peak_memory_stats()
+
+        dummy_input = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
+        dummy_target = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
+
+        if use_amp:
+            with autocast('cuda', dtype=torch.bfloat16):
+                output = model(dummy_input)
+                loss = F.cross_entropy(
+                    output.view(-1, output.size(-1)),
+                    dummy_target.view(-1),
+                    reduction='mean'
+                )
+        else:
+            output = model(dummy_input)
+            loss = F.cross_entropy(
+                output.view(-1, output.size(-1)),
+                dummy_target.view(-1),
+                reduction='mean'
+            )
+
+        loss.backward()
+        torch.cuda.synchronize()
+
+        peak_memory = torch.cuda.max_memory_allocated() / 1024**3
+
+        model.zero_grad(set_to_none=True)
+        del dummy_input, dummy_target, output, loss
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+
+        if peak_memory > gpu_mem_gb * 0.95:
+            return False, peak_memory
+
+        return True, peak_memory
+
+    except RuntimeError as e:
+        error_str = str(e).lower()
+        if "out of memory" in error_str or "cuda" in error_str or "memory" in error_str:
+            try:
+                model.zero_grad(set_to_none=True)
+            except:
+                pass
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            return False, 0.0
+        else:
+            raise e
+
+
+def find_max_batch_size_baseline(
+    model: StandardTransformer,
+    vocab_size: int,
+    seq_len: int,
+    device: str,
+    start: int = 8,
+    max_batch: int = 512,
+    use_amp: bool = True
+) -> int:
+    """Binary search for max batch size (baseline model version)."""
+    if device != 'cuda':
+        return start
+
+    model.train()
+    gpu_mem_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
+    print(f"Finding optimal batch size (GPU: {gpu_mem_gb:.1f}GB)...")
+
+    low = start
+    high = start
+
+    print("  Phase 1: Finding upper bound...")
+    while high <= max_batch:
+        success, peak = _test_batch_size_baseline(model, vocab_size, seq_len, high, device, gpu_mem_gb, use_amp)
+        if success:
+            print(f"    batch_size={high}... OK (peak: {peak:.1f}GB)")
+            low = high
+            high *= 2
+        else:
+            if peak > 0:
+                print(f"    batch_size={high}... OOM (peak: {peak:.1f}GB)")
+            else:
+                print(f"    batch_size={high}... OOM")
+            break
+
+    if high > max_batch:
+        high = max_batch
+        success, peak = _test_batch_size_baseline(model, vocab_size, seq_len, high, device, gpu_mem_gb, use_amp)
+        if success:
+            print(f"    batch_size={high}... OK (peak: {peak:.1f}GB)")
+            print(f"  Max batch size: {high} (capped)")
+            return high
+
+    if high > low:
+        print(f"  Phase 2: Binary search between {low} and {high}...")
+        while high - low > max(1, low // 8):
+            mid = (low + high) // 2
+            if mid == low:
+                break
+            success, peak = _test_batch_size_baseline(model, vocab_size, seq_len, mid, device, gpu_mem_gb, use_amp)
+            if success:
+                print(f"    batch_size={mid}... OK (peak: {peak:.1f}GB)")
+                low = mid
+            else:
+                if peak > 0:
+                    print(f"    batch_size={mid}... OOM (peak: {peak:.1f}GB)")
+                else:
+                    print(f"    batch_size={mid}... OOM")
+                high = mid
+
+    if low == 0:
+        return start
+
+    print(f"  Max batch size: {low}")
+    return low
+
+
 class BaselineTrainer:
-    """Training handler for baseline (non-recursive) model."""
+    """Training handler for baseline (non-recursive) StandardTransformer."""
 
     def __init__(
         self,
-        model: StandardWeightTiedTransformer,
+        model: StandardTransformer,
         tokenizer,
         train_loader: DataLoader,
         val_loader: DataLoader,
@@ -97,13 +221,13 @@ class BaselineTrainer:
         # Optimizer
         self.optimizer = optim.AdamW(
             model.parameters(),
-            lr=config.get('learning_rate', 3e-4),
+            lr=config.get('learning_rate', 1.5e-4),
             weight_decay=config.get('weight_decay', 0.01)
         )
 
         # Learning rate scheduler (cosine with warmup)
         total_steps = config.get('total_steps', 50000)
-        warmup_steps = config.get('warmup_steps', 1000)
+        warmup_steps = config.get('warmup_steps', 2000)
 
         def lr_lambda(step):
             if step < warmup_steps:
@@ -142,13 +266,13 @@ class BaselineTrainer:
 
             if self.use_amp:
                 with autocast('cuda', dtype=torch.bfloat16):
-                    output, metadata = self.model(input_ids)
+                    output = self.model(input_ids)
                     loss, metrics = compute_baseline_loss(output, target_ids)
                     scaled_loss = loss / self.accumulation_steps
 
                 self.scaler.scale(scaled_loss).backward()
             else:
-                output, metadata = self.model(input_ids)
+                output = self.model(input_ids)
                 loss, metrics = compute_baseline_loss(output, target_ids)
                 scaled_loss = loss / self.accumulation_steps
                 scaled_loss.backward()
@@ -190,7 +314,7 @@ class BaselineTrainer:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
 
-            output, metadata = self.model(input_ids)
+            output = self.model(input_ids)
             loss, metrics = compute_baseline_loss(output, target_ids)
 
             total_loss += loss.item()
@@ -208,7 +332,7 @@ class BaselineTrainer:
     def train(
         self,
         total_steps: int,
-        save_dir: str = 'checkpoints_tinystories_baseline',
+        save_dir: str = 'checkpoints_baseline_80m',
         log_interval: int = 100,
         eval_interval: int = 1000,
         save_interval: int = 5000
@@ -219,13 +343,13 @@ class BaselineTrainer:
         actual_batch_size = self.config.get('actual_batch_size', self.config.get('batch_size', 64))
         effective_batch_size = actual_batch_size * self.accumulation_steps
 
-        print(f"\nStarting BASELINE training for {total_steps} steps...")
+        print(f"\nStarting BASELINE (StandardTransformer) training for {total_steps} steps...")
         print(f"Device: {self.device}")
+        print(f"Model: StandardTransformer (no recursion, no weight tying)")
         print(f"Model parameters: {sum(p.numel() for p in self.model.parameters()):,}")
         print(f"Batch size: {actual_batch_size}")
         print(f"Accumulation steps: {self.accumulation_steps}")
         print(f"Effective batch size: {effective_batch_size}")
-        print(f"Layer repeats: {self.model.n_repeats} (fixed, no adaptive compute)")
         print_gpu_memory()
         print("-" * 60)
 
@@ -305,6 +429,7 @@ class BaselineTrainer:
             'best_val_loss': self.best_val_loss,
             'history': dict(self.history),
             'global_step': self.global_step,
+            'is_baseline': True,
         }, path)
 
     def load_checkpoint(self, path: str) -> int:
@@ -318,142 +443,13 @@ class BaselineTrainer:
         return self.global_step
 
 
-def _test_batch_size_baseline(
-    model: StandardWeightTiedTransformer,
-    vocab_size: int,
-    seq_len: int,
-    batch_size: int,
-    device: str,
-    gpu_mem_gb: float,
-    use_amp: bool = True
-) -> Tuple[bool, float]:
-    """Test if a batch size fits for baseline model."""
-    try:
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
-        torch.cuda.reset_peak_memory_stats()
-
-        dummy_input = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
-        dummy_target = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
-
-        if use_amp:
-            with autocast('cuda', dtype=torch.bfloat16):
-                output, metadata = model(dummy_input)
-                loss = F.cross_entropy(
-                    output.view(-1, output.size(-1)),
-                    dummy_target.view(-1),
-                    reduction='mean'
-                )
-        else:
-            output, metadata = model(dummy_input)
-            loss = F.cross_entropy(
-                output.view(-1, output.size(-1)),
-                dummy_target.view(-1),
-                reduction='mean'
-            )
-
-        loss.backward()
-        torch.cuda.synchronize()
-
-        peak_memory = torch.cuda.max_memory_allocated() / 1024**3
-
-        model.zero_grad(set_to_none=True)
-        del dummy_input, dummy_target, output, metadata, loss
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
-
-        if peak_memory > gpu_mem_gb * 0.95:
-            return False, peak_memory
-
-        return True, peak_memory
-
-    except RuntimeError as e:
-        error_str = str(e).lower()
-        if "out of memory" in error_str or "cuda" in error_str or "memory" in error_str:
-            try:
-                model.zero_grad(set_to_none=True)
-            except:
-                pass
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-            return False, 0.0
-        else:
-            raise e
-
-
-def find_max_batch_size_baseline(
-    model: StandardWeightTiedTransformer,
-    vocab_size: int,
-    seq_len: int,
-    device: str,
-    start: int = 8,
-    max_batch: int = 512,
-    use_amp: bool = True
-) -> int:
-    """Binary search for max batch size (baseline model version)."""
-    if device != 'cuda':
-        return start
-
-    model.train()
-    gpu_mem_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
-    print(f"Finding optimal batch size (GPU: {gpu_mem_gb:.1f}GB)...")
-
-    low = start
-    high = start
-
-    print("  Phase 1: Finding upper bound...")
-    while high <= max_batch:
-        success, peak = _test_batch_size_baseline(model, vocab_size, seq_len, high, device, gpu_mem_gb, use_amp)
-        if success:
-            print(f"    batch_size={high}... OK (peak: {peak:.1f}GB)")
-            low = high
-            high *= 2
-        else:
-            if peak > 0:
-                print(f"    batch_size={high}... OOM (peak: {peak:.1f}GB)")
-            else:
-                print(f"    batch_size={high}... OOM")
-            break
-
-    if high > max_batch:
-        high = max_batch
-        success, peak = _test_batch_size_baseline(model, vocab_size, seq_len, high, device, gpu_mem_gb, use_amp)
-        if success:
-            print(f"    batch_size={high}... OK (peak: {peak:.1f}GB)")
-            print(f"  Max batch size: {high} (capped)")
-            return high
-
-    if high > low:
-        print(f"  Phase 2: Binary search between {low} and {high}...")
-        while high - low > max(1, low // 8):
-            mid = (low + high) // 2
-            if mid == low:
-                break
-            success, peak = _test_batch_size_baseline(model, vocab_size, seq_len, mid, device, gpu_mem_gb, use_amp)
-            if success:
-                print(f"    batch_size={mid}... OK (peak: {peak:.1f}GB)")
-                low = mid
-            else:
-                if peak > 0:
-                    print(f"    batch_size={mid}... OOM (peak: {peak:.1f}GB)")
-                else:
-                    print(f"    batch_size={mid}... OOM")
-                high = mid
-
-    if low == 0:
-        return start
-
-    print(f"  Max batch size: {low}")
-    return low
-
-
 def train_baseline(config: Dict = None, resume_from: str = None):
-    """Main training function for baseline model."""
+    """Main training function for baseline StandardTransformer model."""
     if config is None:
         config = {}
 
     print("=" * 60)
-    print("BASELINE MODEL (No Adaptive Compute)")
+    print("BASELINE MODEL - StandardTransformer (No Recursion)")
     print("=" * 60)
 
     print(f"PyTorch version: {torch.__version__}")
@@ -467,22 +463,18 @@ def train_baseline(config: Dict = None, resume_from: str = None):
 
     tokenizer = get_tokenizer(config.get('tokenizer_name', 'EleutherAI/gpt-neo-125M'))
 
-    # Create baseline model - single pass through layers (no repeats)
-    n_repeats = config.get('n_repeats', 1)
-
-    model = StandardWeightTiedTransformer(
+    # Create baseline model - standard transformer, no recursion
+    model = StandardTransformer(
         vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
-        d_model=config.get('d_model', 256),
-        n_heads=config.get('n_heads', 4),
-        n_layers=config.get('n_layers', 6),
-        d_ff=config.get('d_ff', 1024),
-        n_repeats=n_repeats,  # Same as max_iterations for fair comparison
+        d_model=config.get('d_model', 576),
+        n_heads=config.get('n_heads', 8),
+        n_layers=config.get('n_layers', 14),
+        d_ff=config.get('d_ff', 2304),
         dropout=config.get('dropout', 0.1),
         max_seq_len=config.get('max_seq_len', 256)
     )
 
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
-    print(f"Layer repeats: {n_repeats} (fixed)")
 
     model = model.to(device)
 
@@ -495,8 +487,8 @@ def train_baseline(config: Dict = None, resume_from: str = None):
             device=device,
             use_amp=config.get('use_amp', True)
         )
-        actual_batch_size = max(1, int(max_batch * config.get('batch_size_safety_margin', 0.9)))
-        print(f"Using batch_size={actual_batch_size} ({config.get('batch_size_safety_margin', 0.9)*100:.0f}% safety margin)")
+        actual_batch_size = max(1, int(max_batch * config.get('batch_size_safety_margin', 0.8)))
+        print(f"Using batch_size={actual_batch_size} ({config.get('batch_size_safety_margin', 0.8)*100:.0f}% safety margin)")
     else:
         actual_batch_size = config.get('batch_size', 64)
 
@@ -535,7 +527,7 @@ def train_baseline(config: Dict = None, resume_from: str = None):
 
     history = trainer.train(
         total_steps=config.get('total_steps', 50000),
-        save_dir=config.get('save_dir', 'checkpoints_tinystories_baseline'),
+        save_dir=config.get('save_dir', 'checkpoints_baseline_80m'),
         log_interval=config.get('log_interval', 100),
         eval_interval=config.get('eval_interval', 1000),
         save_interval=config.get('save_interval', 5000)
@@ -545,17 +537,16 @@ def train_baseline(config: Dict = None, resume_from: str = None):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train BASELINE model on TinyStories (no adaptive compute)')
+    parser = argparse.ArgumentParser(description='Train BASELINE StandardTransformer on TinyStories (no recursion)')
     parser.add_argument('--steps', type=int, default=50000, help='Total training steps')
     parser.add_argument('--batch-size', type=int, default=64, help='Manual batch size')
     parser.add_argument('--target-batch-size', type=int, default=128, help='Target effective batch size')
     parser.add_argument('--no-auto-batch', action='store_true', help='Disable auto batch size')
-    parser.add_argument('--d-model', type=int, default=864, help='Model dimension (864 gives ~80M params)')
-    parser.add_argument('--n-layers', type=int, default=8, help='Number of layers')
-    parser.add_argument('--n-repeats', type=int, default=1, help='Number of layer repeats (1 = single pass)')
-    parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
+    parser.add_argument('--d-model', type=int, default=576, help='Model dimension (576 gives ~80M params with 14 layers)')
+    parser.add_argument('--n-layers', type=int, default=14, help='Number of layers')
+    parser.add_argument('--lr', type=float, default=1.5e-4, help='Learning rate (lower for bigger model)')
     parser.add_argument('--resume', type=str, default=None, help='Checkpoint to resume from')
-    parser.add_argument('--save-dir', type=str, default='checkpoints_tinystories_baseline', help='Save directory')
+    parser.add_argument('--save-dir', type=str, default='checkpoints_baseline_80m', help='Save directory')
 
     args = parser.parse_args()
 
@@ -568,19 +559,18 @@ if __name__ == '__main__':
         'n_heads': n_heads,
         'n_layers': args.n_layers,
         'd_ff': args.d_model * 4,
-        'n_repeats': args.n_repeats,  # 1 = single pass (no repeats)
         'dropout': 0.1,
         'max_seq_len': 256,
 
         'batch_size': args.batch_size,
         'target_effective_batch_size': args.target_batch_size,
         'auto_batch_size': not args.no_auto_batch,
-        'batch_size_safety_margin': 0.9,
+        'batch_size_safety_margin': 0.8,
 
         'total_steps': args.steps,
         'learning_rate': args.lr,
         'weight_decay': 0.01,
-        'warmup_steps': 1000,
+        'warmup_steps': 2000,  # More warmup for bigger model
         'use_amp': True,
 
         'save_dir': args.save_dir,

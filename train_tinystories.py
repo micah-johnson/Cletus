@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from torch.utils.checkpoint import checkpoint
 
-from model import RecursiveTransformer, FlashRecursiveTransformer, compute_loss
+from model import RecursiveTransformer, FlashRecursiveTransformer, StandardTransformer, compute_loss
 from dataset_tinystories import create_tinystories_dataloaders, get_tokenizer, TINYSTORIES_VOCAB_SIZE
 from config import ExperimentConfig, ModelConfig, DataConfig, TrainConfig
 
@@ -74,13 +74,14 @@ def print_gpu_memory(prefix: str = ""):
 
 
 def _test_batch_size(
-    model: RecursiveTransformer,
+    model: nn.Module,
     vocab_size: int,
     seq_len: int,
     batch_size: int,
     device: str,
     gpu_mem_gb: float,
-    use_amp: bool = True
+    use_amp: bool = True,
+    is_baseline: bool = False
 ) -> Tuple[bool, float]:
     """
     Test if a batch size fits in memory.
@@ -97,17 +98,23 @@ def _test_batch_size(
         dummy_input = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
         dummy_target = torch.randint(0, vocab_size, (batch_size, seq_len), device=device)
 
-        # Forward pass with max iterations (worst case memory)
+        # Forward pass (worst case memory for recursive models)
         if use_amp:
             with autocast('cuda', dtype=torch.bfloat16):
-                output, metadata = model(dummy_input, force_iterations=model.max_iterations)
+                if is_baseline:
+                    output = model(dummy_input)
+                else:
+                    output, metadata = model(dummy_input, force_iterations=model.max_iterations)
                 loss = F.cross_entropy(
                     output.view(-1, output.size(-1)),
                     dummy_target.view(-1),
                     reduction='mean'
                 )
         else:
-            output, metadata = model(dummy_input, force_iterations=model.max_iterations)
+            if is_baseline:
+                output = model(dummy_input)
+            else:
+                output, metadata = model(dummy_input, force_iterations=model.max_iterations)
             loss = F.cross_entropy(
                 output.view(-1, output.size(-1)),
                 dummy_target.view(-1),
@@ -147,13 +154,14 @@ def _test_batch_size(
 
 
 def find_max_batch_size(
-    model: RecursiveTransformer,
+    model: nn.Module,
     vocab_size: int,
     seq_len: int,
     device: str,
     start: int = 8,
     max_batch: int = 512,
-    use_amp: bool = True
+    use_amp: bool = True,
+    is_baseline: bool = False
 ) -> int:
     """
     Binary search for largest batch size that fits in GPU memory.
@@ -168,6 +176,7 @@ def find_max_batch_size(
         start: Starting batch size
         max_batch: Maximum batch size to try
         use_amp: Whether to use mixed precision (should match training)
+        is_baseline: Whether this is a baseline model (no iterations)
 
     Returns:
         Maximum working batch size
@@ -188,7 +197,7 @@ def find_max_batch_size(
 
     print("  Phase 1: Finding upper bound...")
     while high <= max_batch:
-        success, peak = _test_batch_size(model, vocab_size, seq_len, high, device, gpu_mem_gb, use_amp)
+        success, peak = _test_batch_size(model, vocab_size, seq_len, high, device, gpu_mem_gb, use_amp, is_baseline)
         if success:
             print(f"    batch_size={high}... OK (peak: {peak:.1f}GB)")
             low = high
@@ -204,7 +213,7 @@ def find_max_batch_size(
     if high > max_batch:
         high = max_batch
         # Check if max_batch works
-        success, peak = _test_batch_size(model, vocab_size, seq_len, high, device, gpu_mem_gb, use_amp)
+        success, peak = _test_batch_size(model, vocab_size, seq_len, high, device, gpu_mem_gb, use_amp, is_baseline)
         if success:
             print(f"    batch_size={high}... OK (peak: {peak:.1f}GB)")
             print(f"  Max batch size: {high} (capped at max_batch)")
@@ -219,7 +228,7 @@ def find_max_batch_size(
             if mid == low:
                 break
 
-            success, peak = _test_batch_size(model, vocab_size, seq_len, mid, device, gpu_mem_gb, use_amp)
+            success, peak = _test_batch_size(model, vocab_size, seq_len, mid, device, gpu_mem_gb, use_amp, is_baseline)
             if success:
                 print(f"    batch_size={mid}... OK (peak: {peak:.1f}GB)")
                 low = mid
@@ -239,7 +248,7 @@ def find_max_batch_size(
 
 
 def compute_batch_settings(
-    model: RecursiveTransformer,
+    model: nn.Module,
     vocab_size: int,
     seq_len: int,
     device: str,
@@ -247,7 +256,8 @@ def compute_batch_settings(
     auto_batch_size: bool = True,
     manual_batch_size: int = 64,
     use_amp: bool = True,
-    safety_margin: float = 0.8
+    safety_margin: float = 0.8,
+    is_baseline: bool = False
 ) -> Tuple[int, int]:
     """
     Compute optimal batch size and gradient accumulation steps.
@@ -269,7 +279,7 @@ def compute_batch_settings(
     if auto_batch_size and device == 'cuda':
         max_batch = find_max_batch_size(
             model, vocab_size, seq_len, device,
-            start=8, max_batch=1024, use_amp=use_amp
+            start=8, max_batch=1024, use_amp=use_amp, is_baseline=is_baseline
         )
         actual_batch_size = max(1, int(max_batch * safety_margin))
         print(f"Max batch size: {max_batch}")
@@ -593,6 +603,44 @@ def compute_lm_loss(
     return total_loss, metrics
 
 
+def compute_baseline_loss(
+    output: torch.Tensor,
+    target: torch.Tensor,
+) -> Tuple[torch.Tensor, Dict]:
+    """
+    Simple language modeling loss for baseline (non-recursive) model.
+
+    Just cross-entropy loss without any iteration-specific components.
+    """
+    ignore_idx = -100
+
+    # Cross-entropy loss
+    loss = F.cross_entropy(
+        output.view(-1, output.size(-1)),
+        target.view(-1),
+        ignore_index=ignore_idx,
+        reduction='mean'
+    )
+
+    # Compute perplexity and accuracy
+    with torch.no_grad():
+        perplexity = torch.exp(loss).item()
+        predictions = output.argmax(dim=-1)
+        valid_mask = (target != ignore_idx)
+        if valid_mask.any():
+            accuracy = (predictions[valid_mask] == target[valid_mask]).float().mean().item()
+        else:
+            accuracy = 0.0
+
+    metrics = {
+        'task_loss': loss.item(),
+        'perplexity': perplexity,
+        'final_accuracy': accuracy,
+    }
+
+    return loss, metrics
+
+
 # =============================================================================
 # Trainer Class
 # =============================================================================
@@ -602,16 +650,18 @@ class TinyStoriesTrainer:
 
     def __init__(
         self,
-        model: RecursiveTransformer,
+        model: nn.Module,
         tokenizer,
         train_loader: DataLoader,
         val_loader: DataLoader,
         config: Dict,
         device: str = 'cuda',
         accumulation_steps: int = 1,
-        gradient_checkpointing: bool = False
+        gradient_checkpointing: bool = False,
+        is_baseline: bool = False
     ):
         self.model = model.to(device)
+        self.is_baseline = is_baseline
 
         # Track gradient checkpointing status (may already be enabled before trainer init)
         self.gradient_checkpointing = gradient_checkpointing or getattr(self.model, '_gradient_checkpointing_enabled', False)
@@ -645,7 +695,7 @@ class TinyStoriesTrainer:
         self.use_amp = config.get('use_amp', False) and device == 'cuda'
         self.scaler = GradScaler('cuda') if self.use_amp else None
 
-        # Loss weights
+        # Loss weights (only used for recursive models)
         self.iteration_cost = config.get('iteration_cost', 0.01)
         self.done_supervision_weight = config.get('done_supervision_weight', 0.5)
 
@@ -684,33 +734,45 @@ class TinyStoriesTrainer:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
 
-            # Randomize max_iterations per batch (key for learning adaptive compute)
-            if random_max_iters:
-                batch_max_iters = random.randint(1, self.model.max_iterations)
+            if self.is_baseline:
+                # Baseline model: simple forward pass
+                if self.use_amp:
+                    with autocast('cuda', dtype=torch.bfloat16):
+                        output = self.model(input_ids)
+                        loss, metrics = compute_baseline_loss(output, target_ids)
+                        scaled_loss = loss / self.accumulation_steps
+                    self.scaler.scale(scaled_loss).backward()
+                else:
+                    output = self.model(input_ids)
+                    loss, metrics = compute_baseline_loss(output, target_ids)
+                    scaled_loss = loss / self.accumulation_steps
+                    scaled_loss.backward()
             else:
-                batch_max_iters = self.model.max_iterations
+                # Recursive model: randomize iterations
+                if random_max_iters:
+                    batch_max_iters = random.randint(1, self.model.max_iterations)
+                else:
+                    batch_max_iters = self.model.max_iterations
 
-            if self.use_amp:
-                with autocast('cuda', dtype=torch.bfloat16):
+                if self.use_amp:
+                    with autocast('cuda', dtype=torch.bfloat16):
+                        output, metadata = self.model(input_ids, force_iterations=batch_max_iters)
+                        loss, metrics = compute_lm_loss(
+                            output, target_ids, metadata,
+                            iteration_cost=self.iteration_cost,
+                            done_supervision_weight=self.done_supervision_weight
+                        )
+                        scaled_loss = loss / self.accumulation_steps
+                    self.scaler.scale(scaled_loss).backward()
+                else:
                     output, metadata = self.model(input_ids, force_iterations=batch_max_iters)
                     loss, metrics = compute_lm_loss(
                         output, target_ids, metadata,
                         iteration_cost=self.iteration_cost,
                         done_supervision_weight=self.done_supervision_weight
                     )
-                    # Scale loss for accumulation
                     scaled_loss = loss / self.accumulation_steps
-
-                self.scaler.scale(scaled_loss).backward()
-            else:
-                output, metadata = self.model(input_ids, force_iterations=batch_max_iters)
-                loss, metrics = compute_lm_loss(
-                    output, target_ids, metadata,
-                    iteration_cost=self.iteration_cost,
-                    done_supervision_weight=self.done_supervision_weight
-                )
-                scaled_loss = loss / self.accumulation_steps
-                scaled_loss.backward()
+                    scaled_loss.backward()
 
             # Accumulate metrics
             accumulated_loss += loss.item()
@@ -753,17 +815,22 @@ class TinyStoriesTrainer:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
 
-            # Run full iterations for evaluation
-            output, metadata = self.model(
-                input_ids,
-                force_iterations=self.model.max_iterations,
-                threshold=0.7
-            )
-            loss, metrics = compute_lm_loss(
-                output, target_ids, metadata,
-                iteration_cost=self.iteration_cost,
-                done_supervision_weight=self.done_supervision_weight
-            )
+            if self.is_baseline:
+                # Baseline: simple forward pass
+                output = self.model(input_ids)
+                loss, metrics = compute_baseline_loss(output, target_ids)
+            else:
+                # Recursive: run full iterations for evaluation
+                output, metadata = self.model(
+                    input_ids,
+                    force_iterations=self.model.max_iterations,
+                    threshold=0.7
+                )
+                loss, metrics = compute_lm_loss(
+                    output, target_ids, metadata,
+                    iteration_cost=self.iteration_cost,
+                    done_supervision_weight=self.done_supervision_weight
+                )
 
             total_loss += loss.item()
             for k, v in metrics.items():
@@ -794,12 +861,14 @@ class TinyStoriesTrainer:
 
         print(f"\nStarting TinyStories training for {total_steps} steps...")
         print(f"Device: {self.device}")
+        print(f"Model type: {'StandardTransformer (baseline)' if self.is_baseline else 'RecursiveTransformer'}")
         print(f"Model parameters: {sum(p.numel() for p in self.model.parameters()):,}")
         print(f"Batch size: {actual_batch_size}")
         print(f"Accumulation steps: {self.accumulation_steps}")
         print(f"Effective batch size: {effective_batch_size}")
-        print(f"Max iterations: {self.model.max_iterations}")
-        print(f"Gradient checkpointing: {self.gradient_checkpointing}")
+        if not self.is_baseline:
+            print(f"Max iterations: {self.model.max_iterations}")
+            print(f"Gradient checkpointing: {self.gradient_checkpointing}")
         print_gpu_memory()
         print("-" * 60)
 
@@ -827,12 +896,19 @@ class TinyStoriesTrainer:
                 # Average metrics
                 avg_metrics = {k: v / running_count for k, v in running_metrics.items()}
 
-                print(f"Step {self.global_step}/{total_steps} | "
-                      f"Loss: {avg_metrics['loss']:.4f} | "
-                      f"PPL: {avg_metrics['perplexity']:.2f} | "
-                      f"Avg Iters: {avg_metrics['avg_iterations']:.2f} | "
-                      f"LR: {avg_metrics['lr']:.2e} | "
-                      f"{steps_per_sec:.1f} steps/s ({samples_per_sec:.0f} samples/s)")
+                if self.is_baseline:
+                    print(f"Step {self.global_step}/{total_steps} | "
+                          f"Loss: {avg_metrics['loss']:.4f} | "
+                          f"PPL: {avg_metrics['perplexity']:.2f} | "
+                          f"LR: {avg_metrics['lr']:.2e} | "
+                          f"{steps_per_sec:.1f} steps/s ({samples_per_sec:.0f} samples/s)")
+                else:
+                    print(f"Step {self.global_step}/{total_steps} | "
+                          f"Loss: {avg_metrics['loss']:.4f} | "
+                          f"PPL: {avg_metrics['perplexity']:.2f} | "
+                          f"Avg Iters: {avg_metrics.get('avg_iterations', 0):.2f} | "
+                          f"LR: {avg_metrics['lr']:.2e} | "
+                          f"{steps_per_sec:.1f} steps/s ({samples_per_sec:.0f} samples/s)")
 
                 # Record history
                 for k, v in avg_metrics.items():
@@ -847,18 +923,23 @@ class TinyStoriesTrainer:
             # Validation
             if self.global_step % eval_interval == 0:
                 val_metrics = self.validate()
-                print(f"  [Val] Loss: {val_metrics['loss']:.4f} | "
-                      f"PPL: {val_metrics['perplexity']:.2f} | "
-                      f"Avg Iters: {val_metrics.get('avg_iterations', 0):.2f}")
+                if self.is_baseline:
+                    print(f"  [Val] Loss: {val_metrics['loss']:.4f} | "
+                          f"PPL: {val_metrics['perplexity']:.2f}")
+                else:
+                    print(f"  [Val] Loss: {val_metrics['loss']:.4f} | "
+                          f"PPL: {val_metrics['perplexity']:.2f} | "
+                          f"Avg Iters: {val_metrics.get('avg_iterations', 0):.2f}")
 
                 # Record
                 for k, v in val_metrics.items():
                     if isinstance(v, (int, float)):
                         self.history[f'val_{k}'].append(v)
 
-                # Print gate values and memory
-                gates = self.model.get_gate_values()
-                print(f"  Cross-attn gates: {[f'{g:.3f}' for g in gates]}")
+                # Print gate values and memory (only for recursive models)
+                if not self.is_baseline and hasattr(self.model, 'get_gate_values'):
+                    gates = self.model.get_gate_values()
+                    print(f"  Cross-attn gates: {[f'{g:.3f}' for g in gates]}")
                 print_gpu_memory("  ")
 
                 # Save best
@@ -939,20 +1020,35 @@ def train_tinystories(config: Dict = None, resume_from: str = None):
 
     # Create model (use 10K vocab like TinyStories paper)
     use_flash = config.get('use_flash_attention', False)
-    ModelClass = FlashRecursiveTransformer if use_flash else RecursiveTransformer
+    use_baseline = config.get('use_baseline', False)
 
-    model = ModelClass(
-        vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
-        d_model=config.get('d_model', 256),
-        n_heads=config.get('n_heads', 4),
-        n_layers=config.get('n_layers', 6),
-        d_ff=config.get('d_ff', 1024),
-        max_iterations=config.get('max_iterations', 8),
-        dropout=config.get('dropout', 0.1),
-        max_seq_len=config.get('max_seq_len', 256)
-    )
+    if use_baseline:
+        # Standard transformer baseline (no recursion)
+        model = StandardTransformer(
+            vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
+            d_model=config.get('d_model', 576),
+            n_heads=config.get('n_heads', 8),
+            n_layers=config.get('n_layers', 14),
+            d_ff=config.get('d_ff', 2304),
+            dropout=config.get('dropout', 0.1),
+            max_seq_len=config.get('max_seq_len', 256)
+        )
+        model_type = "StandardTransformer (baseline)"
+    else:
+        # Recursive transformer
+        ModelClass = FlashRecursiveTransformer if use_flash else RecursiveTransformer
+        model = ModelClass(
+            vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
+            d_model=config.get('d_model', 256),
+            n_heads=config.get('n_heads', 4),
+            n_layers=config.get('n_layers', 6),
+            d_ff=config.get('d_ff', 1024),
+            max_iterations=config.get('max_iterations', 8),
+            dropout=config.get('dropout', 0.1),
+            max_seq_len=config.get('max_seq_len', 256)
+        )
+        model_type = "FlashRecursiveTransformer" if use_flash else "RecursiveTransformer"
 
-    model_type = "FlashRecursiveTransformer" if use_flash else "RecursiveTransformer"
     print(f"Model: {model_type}")
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
@@ -960,7 +1056,8 @@ def train_tinystories(config: Dict = None, resume_from: str = None):
     model_on_device = model.to(device)
 
     # Enable gradient checkpointing BEFORE batch size detection so we get accurate memory estimates
-    if config.get('gradient_checkpointing', False):
+    # (only for recursive models, not baseline)
+    if config.get('gradient_checkpointing', False) and not use_baseline:
         enable_gradient_checkpointing(model_on_device)
 
     # Compute batch size and accumulation
@@ -973,7 +1070,8 @@ def train_tinystories(config: Dict = None, resume_from: str = None):
         auto_batch_size=config.get('auto_batch_size', True),
         manual_batch_size=config.get('batch_size', 64),
         use_amp=config.get('use_amp', True),
-        safety_margin=config.get('batch_size_safety_margin', 0.8)
+        safety_margin=config.get('batch_size_safety_margin', 0.8),
+        is_baseline=use_baseline
     )
 
     # Update config with actual values
@@ -998,7 +1096,8 @@ def train_tinystories(config: Dict = None, resume_from: str = None):
         config=config,
         device=device,
         accumulation_steps=accumulation_steps,
-        gradient_checkpointing=config.get('gradient_checkpointing', False)
+        gradient_checkpointing=config.get('gradient_checkpointing', False),
+        is_baseline=use_baseline
     )
 
     # Resume if needed
@@ -1035,42 +1134,75 @@ if __name__ == '__main__':
                         help='Enable gradient checkpointing to save memory (slower but uses less VRAM)')
     parser.add_argument('--flash', action='store_true',
                         help='Use FlashRecursiveTransformer with previous-only cross-attention')
+    parser.add_argument('--baseline', action='store_true',
+                        help='Train standard 80M transformer baseline (no recursion)')
 
     args = parser.parse_args()
 
-    # Compute n_heads ensuring d_model is divisible
-    n_heads = 8 if args.d_model % 8 == 0 else (6 if args.d_model % 6 == 0 else 4)
+    # Baseline uses fixed 80M config, otherwise use CLI args
+    if args.baseline:
+        config = {
+            'vocab_size': TINYSTORIES_VOCAB_SIZE,
+            'd_model': 576,
+            'n_heads': 8,
+            'n_layers': 14,
+            'd_ff': 2304,
+            'dropout': 0.1,
+            'max_seq_len': 256,
 
-    config = {
-        'vocab_size': TINYSTORIES_VOCAB_SIZE,  # 10K (like TinyStories paper)
-        'd_model': args.d_model,
-        'n_heads': n_heads,
-        'n_layers': args.n_layers,
-        'd_ff': args.d_model * 4,
-        'max_iterations': args.max_iters,
-        'dropout': 0.1,
-        'max_seq_len': 256,
+            'batch_size': args.batch_size,
+            'target_effective_batch_size': args.target_batch_size,
+            'auto_batch_size': not args.no_auto_batch,
+            'batch_size_safety_margin': 0.8,
 
-        'batch_size': args.batch_size,
-        'target_effective_batch_size': args.target_batch_size,
-        'auto_batch_size': not args.no_auto_batch,
-        'batch_size_safety_margin': 0.8,
+            'total_steps': args.steps,
+            'learning_rate': args.lr if args.lr != 3e-4 else 1.5e-4,  # Lower LR for bigger model
+            'weight_decay': 0.01,
+            'warmup_steps': 2000,
+            'use_amp': True,
+            'use_baseline': True,
 
-        'total_steps': args.steps,
-        'learning_rate': args.lr,
-        'weight_decay': 0.01,
-        'warmup_steps': 1000,
-        'iteration_cost': 0.01,
-        'done_supervision_weight': 0.5,
-        'use_amp': True,
-        'gradient_checkpointing': args.gradient_checkpointing,
-        'use_flash_attention': args.flash,
+            'save_dir': args.save_dir if args.save_dir != 'checkpoints_tinystories' else 'checkpoints_baseline_80m',
+            'log_interval': 100,
+            'eval_interval': 1000,
+            'save_interval': 5000,
+            'val_samples': 1000,
+        }
+    else:
+        # Compute n_heads ensuring d_model is divisible
+        n_heads = 8 if args.d_model % 8 == 0 else (6 if args.d_model % 6 == 0 else 4)
 
-        'save_dir': args.save_dir,
-        'log_interval': 100,
-        'eval_interval': 1000,
-        'save_interval': 5000,
-        'val_samples': 1000,
-    }
+        config = {
+            'vocab_size': TINYSTORIES_VOCAB_SIZE,  # 10K (like TinyStories paper)
+            'd_model': args.d_model,
+            'n_heads': n_heads,
+            'n_layers': args.n_layers,
+            'd_ff': args.d_model * 4,
+            'max_iterations': args.max_iters,
+            'dropout': 0.1,
+            'max_seq_len': 256,
+
+            'batch_size': args.batch_size,
+            'target_effective_batch_size': args.target_batch_size,
+            'auto_batch_size': not args.no_auto_batch,
+            'batch_size_safety_margin': 0.8,
+
+            'total_steps': args.steps,
+            'learning_rate': args.lr,
+            'weight_decay': 0.01,
+            'warmup_steps': 1000,
+            'iteration_cost': 0.01,
+            'done_supervision_weight': 0.5,
+            'use_amp': True,
+            'gradient_checkpointing': args.gradient_checkpointing,
+            'use_flash_attention': args.flash,
+            'use_baseline': False,
+
+            'save_dir': args.save_dir,
+            'log_interval': 100,
+            'eval_interval': 1000,
+            'save_interval': 5000,
+            'val_samples': 1000,
+        }
 
     train_tinystories(config, resume_from=args.resume)

@@ -762,37 +762,71 @@ def compute_loss(
 # =============================================================================
 
 class StandardTransformerLayer(nn.Module):
-    """Standard transformer layer WITHOUT cross-attention."""
+    """
+    Standard transformer layer with FlashAttention and SwiGLU.
+
+    Same architecture as FlashRecursiveTransformerLayer but WITHOUT cross-attention.
+    This ensures fair comparison - only difference is recursion/cross-attention.
+    """
 
     def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float = 0.1):
         super().__init__()
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.head_dim = d_model // n_heads
 
-        self.self_attn = nn.MultiheadAttention(
-            d_model, n_heads, dropout=dropout, batch_first=True
-        )
+        assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
+
+        # Self-attention: packed QKV projection (same as Flash model)
+        self.self_qkv = nn.Linear(d_model, 3 * d_model, bias=False)
+        self.self_out = nn.Linear(d_model, d_model, bias=False)
         self.norm1 = RMSNorm(d_model)
 
-        self.ff = nn.Sequential(
-            nn.Linear(d_model, d_ff),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(d_ff, d_model),
-            nn.Dropout(dropout)
-        )
+        # Feedforward: SwiGLU variant (same as Flash model)
+        self.ff_gate = nn.Linear(d_model, d_ff, bias=False)
+        self.ff_up = nn.Linear(d_model, d_ff, bias=False)
+        self.ff_down = nn.Linear(d_ff, d_model, bias=False)
         self.norm2 = RMSNorm(d_model)
 
         self.dropout = nn.Dropout(dropout)
+        self.attn_dropout = dropout
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, is_causal: bool = True) -> torch.Tensor:
+        batch_size, seq_len, _ = x.shape
+
+        # 1. Self-attention with pre-norm
         residual = x
         x_norm = self.norm1(x)
-        attn_out, _ = self.self_attn(x_norm, x_norm, x_norm, attn_mask=attn_mask)
+
+        # Packed QKV projection and reshape
+        qkv = self.self_qkv(x_norm)  # [B, S, 3*D]
+        qkv = qkv.view(batch_size, seq_len, 3, self.n_heads, self.head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)  # [3, B, H, S, D_head]
+        q, k, v = qkv[0], qkv[1], qkv[2]  # Each: [B, H, S, D_head]
+
+        # FlashAttention via scaled_dot_product_attention
+        attn_out = F.scaled_dot_product_attention(
+            q, k, v,
+            dropout_p=self.attn_dropout if self.training else 0.0,
+            is_causal=is_causal
+        )  # [B, H, S, D_head]
+
+        # Reshape and project output
+        attn_out = attn_out.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d_model)
+        attn_out = self.self_out(attn_out)
         x = residual + self.dropout(attn_out)
 
+        # 2. Feedforward with SwiGLU and pre-norm
         residual = x
         x_norm = self.norm2(x)
-        ff_out = self.ff(x_norm)
-        x = residual + ff_out
+
+        # SwiGLU: silu(gate) * up
+        gate_out = self.ff_gate(x_norm)
+        up_out = self.ff_up(x_norm)
+        ff_out = F.silu(gate_out) * up_out
+        ff_out = self.ff_down(ff_out)
+
+        x = residual + self.dropout(ff_out)
 
         return x
 
@@ -852,15 +886,10 @@ class StandardWeightTiedTransformer(nn.Module):
         x = self.embedding(input_ids) * math.sqrt(self.d_model)
         x = x + self.pos_embedding(positions)
 
-        # Causal mask - prevent attending to future tokens
-        causal_mask = torch.triu(
-            torch.ones(seq_len, seq_len, device=device, dtype=torch.bool),
-            diagonal=1
-        )
-
+        # Forward through layers (causal masking handled inside layer)
         for repeat in range(self.n_repeats):
             for layer in self.layers:
-                x = layer(x, attn_mask=causal_mask)
+                x = layer(x, is_causal=True)
 
         output = self.output_head(self.output_norm(x))
 
@@ -960,14 +989,9 @@ class StandardTransformer(nn.Module):
         x = self.embedding(input_ids) * math.sqrt(self.d_model)
         x = x + self.pos_embedding(positions)
 
-        # Causal mask - prevent attending to future tokens
-        causal_mask = torch.triu(
-            torch.ones(seq_len, seq_len, device=device, dtype=torch.bool),
-            diagonal=1
-        )
-
+        # Forward through layers (causal masking handled inside layer)
         for layer in self.layers:
-            x = layer(x, attn_mask=causal_mask)
+            x = layer(x, is_causal=True)
 
         output = self.output_head(self.output_norm(x))
 

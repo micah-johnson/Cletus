@@ -421,6 +421,48 @@ def get_standard_config() -> StandardConfig:
     return STANDARD_CONFIG
 
 
+def get_standard_80m_config() -> dict:
+    """
+    Get config for ~80M param standard transformer (no weight tying, no recursion).
+
+    For fair comparison with FlashRecursiveTransformer.
+    Uses same architecture (FlashAttention, SwiGLU) but no recursion.
+
+    Config: d_model=576, n_layers=14, d_ff=2304, vocab=10000
+    ~80M parameters
+    """
+    from dataset_tinystories import TINYSTORIES_VOCAB_SIZE
+    return {
+        'vocab_size': TINYSTORIES_VOCAB_SIZE,  # 10000
+        'd_model': 576,
+        'n_heads': 8,  # 576 / 8 = 72 head dim
+        'n_layers': 14,
+        'd_ff': 2304,  # 4 * d_model
+        'dropout': 0.1,
+        'max_seq_len': 256,
+
+        # Training
+        'total_steps': 100000,
+        'learning_rate': 1.5e-4,
+        'weight_decay': 0.01,
+        'warmup_steps': 2000,
+        'use_amp': True,
+        'save_dir': 'checkpoints_standard_80m',
+        'log_interval': 100,
+        'eval_interval': 1000,
+        'save_interval': 5000,
+        'val_samples': 1000,
+
+        # Auto batch size
+        'target_effective_batch_size': 128,
+        'auto_batch_size': True,
+        'batch_size_safety_margin': 0.8,
+
+        'name': 'standard_80m',
+        'model_type': 'standard',
+    }
+
+
 # =============================================================================
 # TinyStories Configuration (Language Modeling)
 # =============================================================================
