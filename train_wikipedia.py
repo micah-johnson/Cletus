@@ -506,6 +506,12 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
     if full_config.get('gradient_checkpointing', False):
         enable_gradient_checkpointing(model)
 
+    # Compile model for faster training (PyTorch 2.0+)
+    if full_config.get('compile', True) and device == 'cuda':
+        print("Compiling model with torch.compile()...")
+        model = torch.compile(model, mode=full_config.get('compile_mode', 'default'))
+        print("Model compiled!")
+
     # Find optimal batch size
     if full_config.get('auto_batch_size', True) and device == 'cuda':
         max_batch = find_max_batch_size(
@@ -582,6 +588,10 @@ if __name__ == '__main__':
     parser.add_argument('--resume', type=str, default=None, help='Checkpoint to resume from')
     parser.add_argument('--save-dir', type=str, default='checkpoints_wikipedia_125m', help='Save directory')
     parser.add_argument('--gradient-checkpointing', action='store_true', help='Enable gradient checkpointing')
+    parser.add_argument('--no-compile', action='store_true', help='Disable torch.compile()')
+    parser.add_argument('--compile-mode', type=str, default='max-autotune',
+                        choices=['default', 'reduce-overhead', 'max-autotune'],
+                        help='torch.compile mode (default: max-autotune for best performance)')
 
     args = parser.parse_args()
 
@@ -603,6 +613,8 @@ if __name__ == '__main__':
         'max_iterations': args.max_iters,
         'max_seq_len': args.seq_len,
         'gradient_checkpointing': args.gradient_checkpointing,
+        'compile': not args.no_compile,
+        'compile_mode': args.compile_mode,
 
         # Loss weights
         'iteration_cost': 0.01,
