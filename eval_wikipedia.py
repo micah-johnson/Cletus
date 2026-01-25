@@ -263,7 +263,7 @@ def evaluate(
                 output, metadata = model(
                     input_ids,
                     attention_mask=attention_mask,
-                    force_iterations=None,  # Let model decide (adaptive compute)
+                    force_iterations=5,  # Force 5 iterations
                 )
 
                 # Compute loss
@@ -277,7 +277,7 @@ def evaluate(
             output, metadata = model(
                 input_ids,
                 attention_mask=attention_mask,
-                force_iterations=None,
+                force_iterations=5,  # Force 5 iterations
             )
 
             loss = F.cross_entropy(
