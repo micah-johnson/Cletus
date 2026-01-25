@@ -295,22 +295,32 @@ def evaluate(
         num_batches += 1
 
         # Track iteration statistics
-        if 'iterations_used' in metadata:
-            iters_used = metadata['iterations_used']  # [batch, seq_len]
-            # Average iterations per position
-            avg_iters = iters_used.float().mean().item()
-            total_iterations += avg_iters * batch_size
+        # FlashRecursiveTransformer returns 'iterations_per_position' and 'num_iterations'
+        if 'iterations_per_position' in metadata:
+            iters_per_pos = metadata['iterations_per_position']  # [batch, seq_len] float tensor
+            # Average iterations per position (only count non-padding positions)
+            mask = (target_ids != -100)
+            if mask.any():
+                avg_iters = (iters_per_pos * mask).sum().item() / mask.sum().item()
+            else:
+                avg_iters = iters_per_pos.mean().item()
+            total_iterations += avg_iters
 
-            # Count iteration distribution
+            # Count iteration distribution (round to int for bucketing)
+            iters_int = iters_per_pos.long()
             for i in range(1, model.max_iterations + 1):
-                count = (iters_used == i).sum().item()
+                count = ((iters_int == i) & mask).sum().item()
                 iteration_counts[i] += count
+        elif 'num_iterations' in metadata:
+            # Fallback: use total iterations if per-position not available
+            total_iterations += metadata['num_iterations']
 
         # Update progress bar
         running_ppl = torch.exp(torch.tensor(total_loss / max(total_tokens, 1))).item()
+        running_avg_iters = total_iterations / max(num_batches, 1)
         pbar.set_postfix({
             'ppl': f'{running_ppl:.2f}',
-            'tokens': f'{total_tokens:,}',
+            'iters': f'{running_avg_iters:.2f}',
         })
 
     # Compute final metrics
