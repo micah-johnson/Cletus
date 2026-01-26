@@ -355,8 +355,12 @@ class OpenWebTextTrainer:
         self.global_step = 0
         self.tokens_seen = 0
 
-    def train_step_accumulated(self, batch_iter, random_max_iters: bool = True) -> Tuple[Dict, bool]:
-        """Training step with gradient accumulation. Returns (metrics, epoch_done)."""
+    def train_step_accumulated(self, batch_iter, randomize_max_iters: bool = True) -> Tuple[Dict, bool]:
+        """Training step with gradient accumulation. Returns (metrics, epoch_done).
+
+        Model can early-stop when done signal > threshold AND predictions are correct,
+        but is capped by a randomized max_iters to prevent dependence on any one strategy.
+        """
         self.model.train()
         self.optimizer.zero_grad()
 
@@ -377,15 +381,15 @@ class OpenWebTextTrainer:
             # Track tokens
             self.tokens_seen += input_ids.numel()
 
-            # Randomize iterations
-            if random_max_iters:
-                batch_max_iters = random.randint(1, self.model.max_iterations)
+            # Randomize max iterations cap (model can still early-stop before this)
+            if randomize_max_iters:
+                max_iters = random.randint(1, self.model.max_iterations)
             else:
-                batch_max_iters = self.model.max_iterations
+                max_iters = self.model.max_iterations
 
             if self.use_amp:
                 with autocast('cuda', dtype=torch.bfloat16):
-                    output, metadata = self.model(input_ids, force_iterations=batch_max_iters)
+                    output, metadata = self.model(input_ids, target=target_ids, max_iters=max_iters)
                     loss, metrics = compute_lm_loss(
                         output, target_ids, metadata,
                         iteration_cost=self.iteration_cost,
@@ -395,7 +399,7 @@ class OpenWebTextTrainer:
 
                 self.scaler.scale(scaled_loss).backward()
             else:
-                output, metadata = self.model(input_ids, force_iterations=batch_max_iters)
+                output, metadata = self.model(input_ids, target=target_ids, max_iters=max_iters)
                 loss, metrics = compute_lm_loss(
                     output, target_ids, metadata,
                     iteration_cost=self.iteration_cost,

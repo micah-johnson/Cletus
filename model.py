@@ -1218,9 +1218,10 @@ class FlashRecursiveTransformer(nn.Module):
         self,
         input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
+        target: Optional[torch.Tensor] = None,
         threshold: float = 0.5,
         return_all_states: bool = False,
-        force_iterations: Optional[int] = None,
+        max_iters: Optional[int] = None,
         detach_hidden: bool = False
     ) -> Tuple[torch.Tensor, Dict]:
         """
@@ -1229,9 +1230,10 @@ class FlashRecursiveTransformer(nn.Module):
         Args:
             input_ids: [batch_size, seq_len] input token IDs
             attention_mask: [batch_size, seq_len] attention mask (1 = attend, 0 = ignore)
-            threshold: Done probability threshold for early stopping (inference only)
+            target: [batch_size, seq_len] target IDs for early stopping during training
+            threshold: Done probability threshold for early stopping
             return_all_states: Whether to return hidden states from all iterations
-            force_iterations: If set, run exactly this many iterations
+            max_iters: Cap on iterations (can still early-stop before this)
             detach_hidden: If True, detach hidden states (saves memory)
 
         Returns:
@@ -1240,6 +1242,9 @@ class FlashRecursiveTransformer(nn.Module):
         """
         batch_size, seq_len = input_ids.shape
         device = input_ids.device
+
+        # Cap iterations (default to model's max)
+        iter_cap = max_iters if max_iters is not None else self.max_iterations
 
         # Token + position embeddings
         positions = torch.arange(seq_len, device=device).unsqueeze(0).expand(batch_size, -1)
@@ -1252,7 +1257,7 @@ class FlashRecursiveTransformer(nn.Module):
 
         prev_state = None  # Only track immediately previous iteration
 
-        for iteration in range(self.max_iterations):
+        for iteration in range(iter_cap):
             # Add iteration embedding
             iter_emb = self.iteration_embedding(
                 torch.full((batch_size,), iteration, device=device, dtype=torch.long)
@@ -1279,10 +1284,14 @@ class FlashRecursiveTransformer(nn.Module):
             # Update x for next iteration
             x = x_iter
 
-            # Early stopping conditions
-            if force_iterations is not None:
-                if iteration + 1 >= force_iterations:
-                    break
+            # Early stopping: done AND correct (training with target) or just done (inference)
+            if target is not None:
+                with torch.no_grad():
+                    predictions = iter_output.argmax(dim=-1)
+                    all_correct = (predictions == target).all()
+                    all_done = done_probs.min() > threshold
+                    if all_done and all_correct:
+                        break
             elif not self.training:
                 if done_probs.min() > threshold:
                     break
