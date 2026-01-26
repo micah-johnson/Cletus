@@ -6,7 +6,6 @@ Key features:
 - Exactly 1 epoch through OpenWebText (~8M documents, ~4B tokens)
 - FineWeb validation set
 - Automatic batch size detection
-- torch.compile with max-autotune
 """
 
 import os
@@ -384,9 +383,6 @@ class OpenWebTextTrainer:
             else:
                 batch_max_iters = self.model.max_iterations
 
-            # Mark step for CUDA graphs
-            torch.compiler.cudagraph_mark_step_begin()
-
             if self.use_amp:
                 with autocast('cuda', dtype=torch.bfloat16):
                     output, metadata = self.model(input_ids, force_iterations=batch_max_iters)
@@ -670,14 +666,6 @@ def train_openwebtext(config: Dict = None, resume_from: str = None):
     full_config['actual_batch_size'] = actual_batch_size
     full_config['accumulation_steps'] = accumulation_steps
 
-    # Compile model
-    if full_config.get('compile', True) and device == 'cuda':
-        compile_mode = full_config.get('compile_mode', 'max-autotune')
-        print(f"Compiling model with torch.compile(mode='{compile_mode}')...")
-        print("  (This may take 2-5 minutes with max-autotune)")
-        model = torch.compile(model, mode=compile_mode)
-        print("Model compiled!")
-
     # Create dataloaders
     train_loader, val_loader, tokenizer = create_openwebtext_dataloaders(
         tokenizer_name="gpt2",
@@ -723,7 +711,6 @@ if __name__ == '__main__':
     parser.add_argument('--seq-len', type=int, default=512, help='Max sequence length')
     parser.add_argument('--resume', type=str, default=None, help='Checkpoint to resume from')
     parser.add_argument('--save-dir', type=str, default='checkpoints_openwebtext', help='Save directory')
-    parser.add_argument('--no-compile', action='store_true', help='Disable torch.compile()')
     parser.add_argument('--compile-mode', type=str, default='max-autotune',
                         choices=['default', 'reduce-overhead', 'max-autotune'],
                         help='torch.compile mode')
