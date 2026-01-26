@@ -1,13 +1,12 @@
 """
-Training loop for 125M Recursive Transformer on Wikipedia.
+Training loop for 125M Recursive Transformer on OpenWebText.
 
 Key features:
-- 125M parameter FlashRecursiveTransformer (d_model=704, n_layers=9)
-- Max 5 iterations with adaptive compute
-- Wikipedia dataset (omarkamali/wikipedia-monthly)
-- GPT-2 tokenizer with full 50K vocab
+- 125M parameter FlashRecursiveTransformer
+- Exactly 1 epoch through OpenWebText (~8M documents, ~4B tokens)
+- FineWeb validation set
 - Automatic batch size detection
-- Gradient accumulation for target effective batch size
+- torch.compile with max-autotune
 """
 
 import os
@@ -25,11 +24,11 @@ from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 
 from model import FlashRecursiveTransformer
-from dataset_wikipedia import create_wikipedia_dataloaders, get_tokenizer, GPT2_VOCAB_SIZE
-from train_tinystories import (
-    print_gpu_memory,
-    compute_lm_loss,
-    enable_gradient_checkpointing,
+from dataset_openwebtext import (
+    create_openwebtext_dataloaders,
+    get_tokenizer,
+    GPT2_VOCAB_SIZE,
+    estimate_openwebtext_tokens,
 )
 
 
@@ -50,8 +49,17 @@ MODEL_125M_CONFIG = {
 
 
 # =============================================================================
-# Batch Size Detection (adapted for Wikipedia)
+# Utilities
 # =============================================================================
+
+def print_gpu_memory(prefix: str = ""):
+    """Print current GPU memory usage."""
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / 1024**3
+        reserved = torch.cuda.memory_reserved() / 1024**3
+        total = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        print(f"{prefix}GPU Memory: {allocated:.1f}GB allocated, {reserved:.1f}GB reserved, {total:.1f}GB total")
+
 
 def _test_batch_size(
     model: nn.Module,
@@ -183,11 +191,118 @@ def find_max_batch_size(
 
 
 # =============================================================================
+# Loss Function
+# =============================================================================
+
+def compute_lm_loss(
+    output: torch.Tensor,
+    target: torch.Tensor,
+    metadata: Dict,
+    iteration_cost: float = 0.01,
+    done_supervision_weight: float = 0.5,
+) -> Tuple[torch.Tensor, Dict]:
+    """
+    Language modeling loss with done classifier supervision.
+
+    Done classifier learns when each position's prediction is correct.
+    """
+    device = output.device
+    batch_size, seq_len = output.size(0), output.size(1)
+    all_outputs = metadata['all_outputs']
+    done_logits = metadata['done_logits']
+    done_probs = metadata['done_probs']
+    num_iters = len(all_outputs)
+
+    # Ignore index for padding
+    ignore_idx = -100
+
+    # 1. Task loss on final output
+    task_loss = F.cross_entropy(
+        output.view(-1, output.size(-1)),
+        target.view(-1),
+        ignore_index=ignore_idx,
+        reduction='mean'
+    )
+
+    # 2. Per-position done classifier supervision
+    per_position_correct = []
+    per_iter_accuracies = []
+
+    for iter_idx, iter_output in enumerate(all_outputs):
+        predictions = iter_output.argmax(dim=-1)
+        correct = (predictions == target).float()
+
+        valid_mask = (target != ignore_idx)
+        if valid_mask.any():
+            acc = correct[valid_mask].mean().item()
+        else:
+            acc = 0.0
+
+        per_position_correct.append(correct)
+        per_iter_accuracies.append(acc)
+
+    # Stack: [batch, num_iters, seq_len]
+    done_targets = torch.stack(per_position_correct, dim=1)
+
+    # Cumulative max: once correct, stays "done"
+    done_targets_cummax, _ = torch.cummax(done_targets, dim=1)
+
+    # Valid positions mask
+    valid_mask_single = (target != ignore_idx)
+    valid_mask = valid_mask_single.unsqueeze(1).expand(-1, num_iters, -1)
+
+    # BCE loss
+    done_supervision_loss = F.binary_cross_entropy_with_logits(
+        done_logits,
+        done_targets_cummax,
+        reduction='none'
+    )
+    done_supervision_loss = (done_supervision_loss * valid_mask.float()).sum() / valid_mask.float().sum().clamp(min=1)
+
+    # 3. Iteration cost
+    continuation_probs = 1 - done_probs
+    expected_iters_per_pos = continuation_probs.sum(dim=1)
+
+    if valid_mask_single.any():
+        iter_loss = iteration_cost * expected_iters_per_pos[valid_mask_single].mean()
+    else:
+        iter_loss = torch.tensor(0.0, device=device)
+
+    total_loss = task_loss + done_supervision_weight * done_supervision_loss + iter_loss
+
+    with torch.no_grad():
+        perplexity = torch.exp(task_loss).item()
+
+        if 'iterations_per_position' in metadata:
+            iters_per_pos = metadata['iterations_per_position']
+            if valid_mask_single.any():
+                avg_iters = iters_per_pos[valid_mask_single].mean().item()
+            else:
+                avg_iters = num_iters
+        else:
+            avg_iters = num_iters
+
+    metrics = {
+        'task_loss': task_loss.item(),
+        'done_loss': done_supervision_loss.item(),
+        'iter_loss': iter_loss.item() if isinstance(iter_loss, torch.Tensor) else iter_loss,
+        'perplexity': perplexity,
+        'avg_iterations': avg_iters,
+        'max_iterations_run': num_iters,
+        'mean_done_prob': done_probs[:, -1, :].mean().item(),
+        'per_iter_accuracy': per_iter_accuracies,
+        'final_accuracy': per_iter_accuracies[-1] if per_iter_accuracies else 0.0
+    }
+
+    return total_loss, metrics
+
+
+# =============================================================================
 # Trainer Class
 # =============================================================================
 
-class WikipediaTrainer:
-    """Training handler for Wikipedia language modeling."""
+class OpenWebTextTrainer:
+    """Training handler for OpenWebText - exactly 1 epoch."""
 
     def __init__(
         self,
@@ -207,7 +322,7 @@ class WikipediaTrainer:
         self.device = device
         self.accumulation_steps = accumulation_steps
 
-        # Optimizer with weight decay
+        # Optimizer
         self.optimizer = optim.AdamW(
             model.parameters(),
             lr=config.get('learning_rate', 3e-4),
@@ -215,14 +330,14 @@ class WikipediaTrainer:
             betas=(0.9, 0.95),
         )
 
-        # Learning rate scheduler (cosine with warmup)
-        total_steps = config.get('total_steps', 100000)
+        # Cosine LR scheduler
+        self.total_steps = config.get('total_steps', 100000)
         warmup_steps = config.get('warmup_steps', 2000)
 
         def lr_lambda(step):
             if step < warmup_steps:
                 return step / warmup_steps
-            progress = (step - warmup_steps) / (total_steps - warmup_steps)
+            progress = (step - warmup_steps) / (self.total_steps - warmup_steps)
             return max(0.1, 0.5 * (1 + torch.cos(torch.tensor(progress * 3.14159)).item()))
 
         self.scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda)
@@ -234,38 +349,42 @@ class WikipediaTrainer:
         # Loss weights
         self.iteration_cost = config.get('iteration_cost', 0.01)
         self.done_supervision_weight = config.get('done_supervision_weight', 0.5)
-        self.convergence_threshold = config.get('convergence_threshold', 0.95)
 
         # Tracking
         self.best_val_loss = float('inf')
         self.history = defaultdict(list)
         self.global_step = 0
+        self.tokens_seen = 0
 
-    def train_step_accumulated(self, train_iter, random_max_iters: bool = True) -> Tuple[Dict, any]:
-        """Training step with gradient accumulation."""
+    def train_step_accumulated(self, batch_iter, random_max_iters: bool = True) -> Tuple[Dict, bool]:
+        """Training step with gradient accumulation. Returns (metrics, epoch_done)."""
         self.model.train()
         self.optimizer.zero_grad()
 
         accumulated_metrics = defaultdict(float)
         accumulated_loss = 0.0
+        epoch_done = False
 
         for accum_idx in range(self.accumulation_steps):
             try:
-                batch = next(train_iter)
+                batch = next(batch_iter)
             except StopIteration:
-                train_iter = iter(self.train_loader)
-                batch = next(train_iter)
+                epoch_done = True
+                break
 
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
 
-            # Randomize iterations for adaptive compute learning
+            # Track tokens
+            self.tokens_seen += input_ids.numel()
+
+            # Randomize iterations
             if random_max_iters:
                 batch_max_iters = random.randint(1, self.model.max_iterations)
             else:
                 batch_max_iters = self.model.max_iterations
 
-            # Mark step begin for CUDA graphs (required for torch.compile with max-autotune)
+            # Mark step for CUDA graphs
             torch.compiler.cudagraph_mark_step_begin()
 
             if self.use_amp:
@@ -274,8 +393,7 @@ class WikipediaTrainer:
                     loss, metrics = compute_lm_loss(
                         output, target_ids, metadata,
                         iteration_cost=self.iteration_cost,
-                        done_supervision_weight=self.done_supervision_weight,
-                        convergence_threshold=self.convergence_threshold
+                        done_supervision_weight=self.done_supervision_weight
                     )
                     scaled_loss = loss / self.accumulation_steps
 
@@ -285,8 +403,7 @@ class WikipediaTrainer:
                 loss, metrics = compute_lm_loss(
                     output, target_ids, metadata,
                     iteration_cost=self.iteration_cost,
-                    done_supervision_weight=self.done_supervision_weight,
-                    convergence_threshold=self.convergence_threshold
+                    done_supervision_weight=self.done_supervision_weight
                 )
                 scaled_loss = loss / self.accumulation_steps
                 scaled_loss.backward()
@@ -296,24 +413,29 @@ class WikipediaTrainer:
                 if isinstance(v, (int, float)):
                     accumulated_metrics[k] += v
 
-        # Optimizer step
-        if self.use_amp:
-            self.scaler.unscale_(self.optimizer)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+        if accumulated_loss > 0:
+            # Optimizer step
+            if self.use_amp:
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.optimizer.step()
+
+            self.scheduler.step()
+            self.global_step += 1
+
+        num_accumulated = accum_idx + 1 if not epoch_done else accum_idx
+        if num_accumulated > 0:
+            final_metrics = {k: v / num_accumulated for k, v in accumulated_metrics.items()}
+            final_metrics['loss'] = accumulated_loss / num_accumulated
+            final_metrics['lr'] = self.scheduler.get_last_lr()[0]
         else:
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-            self.optimizer.step()
+            final_metrics = {}
 
-        self.scheduler.step()
-        self.global_step += 1
-
-        final_metrics = {k: v / self.accumulation_steps for k, v in accumulated_metrics.items()}
-        final_metrics['loss'] = accumulated_loss / self.accumulation_steps
-        final_metrics['lr'] = self.scheduler.get_last_lr()[0]
-
-        return final_metrics, train_iter
+        return final_metrics, epoch_done
 
     @torch.no_grad()
     def validate(self) -> Dict:
@@ -328,7 +450,6 @@ class WikipediaTrainer:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
 
-            # Mark step begin for CUDA graphs
             torch.compiler.cudagraph_mark_step_begin()
 
             output, metadata = self.model(
@@ -339,8 +460,7 @@ class WikipediaTrainer:
             loss, metrics = compute_lm_loss(
                 output, target_ids, metadata,
                 iteration_cost=self.iteration_cost,
-                done_supervision_weight=self.done_supervision_weight,
-                convergence_threshold=self.convergence_threshold
+                done_supervision_weight=self.done_supervision_weight
             )
 
             total_loss += loss.item()
@@ -355,21 +475,21 @@ class WikipediaTrainer:
 
         return {'loss': total_loss, **total_metrics}
 
-    def train(
+    def train_one_epoch(
         self,
-        total_steps: int,
-        save_dir: str = 'checkpoints_wikipedia_125m',
+        save_dir: str = 'checkpoints_openwebtext',
         log_interval: int = 100,
         eval_interval: int = 2000,
         save_interval: int = 10000
     ):
-        """Main training loop."""
+        """Train for exactly 1 epoch through OpenWebText."""
         os.makedirs(save_dir, exist_ok=True)
 
-        actual_batch_size = self.config.get('actual_batch_size', self.config.get('batch_size', 32))
+        actual_batch_size = self.config.get('actual_batch_size', 32)
         effective_batch_size = actual_batch_size * self.accumulation_steps
+        estimated_tokens = estimate_openwebtext_tokens()
 
-        print(f"\nStarting Wikipedia 125M training for {total_steps} steps...")
+        print(f"\nStarting OpenWebText training (1 epoch)...")
         print(f"Device: {self.device}")
         print(f"Model: FlashRecursiveTransformer (125M params)")
         print(f"Model parameters: {sum(p.numel() for p in self.model.parameters()):,}")
@@ -377,39 +497,48 @@ class WikipediaTrainer:
         print(f"Accumulation steps: {self.accumulation_steps}")
         print(f"Effective batch size: {effective_batch_size}")
         print(f"Max iterations: {self.model.max_iterations}")
+        print(f"Estimated tokens: {estimated_tokens / 1e9:.1f}B")
         print_gpu_memory()
         print("-" * 60)
 
-        train_iter = iter(self.train_loader)
+        batch_iter = iter(self.train_loader)
         running_metrics = defaultdict(float)
         running_count = 0
         start_time = time.time()
+        epoch_done = False
 
-        while self.global_step < total_steps:
-            metrics, train_iter = self.train_step_accumulated(train_iter)
+        while not epoch_done:
+            metrics, epoch_done = self.train_step_accumulated(batch_iter)
+
+            if not metrics:
+                continue
 
             for k, v in metrics.items():
                 if isinstance(v, (int, float)):
                     running_metrics[k] += v
             running_count += 1
 
-            if self.global_step % log_interval == 0:
+            if self.global_step % log_interval == 0 and running_count > 0:
                 elapsed = time.time() - start_time
                 steps_per_sec = log_interval / elapsed if elapsed > 0 else 0
-                samples_per_sec = steps_per_sec * effective_batch_size
+                tokens_per_sec = steps_per_sec * effective_batch_size * self.config.get('max_seq_len', 512)
 
                 avg_metrics = {k: v / running_count for k, v in running_metrics.items()}
 
-                print(f"Step {self.global_step}/{total_steps} | "
+                progress = self.tokens_seen / estimated_tokens * 100
+
+                print(f"Step {self.global_step} | "
+                      f"Progress: {progress:.2f}% | "
                       f"Loss: {avg_metrics['loss']:.4f} | "
                       f"PPL: {avg_metrics['perplexity']:.2f} | "
                       f"Avg Iters: {avg_metrics.get('avg_iterations', 0):.2f} | "
                       f"LR: {avg_metrics['lr']:.2e} | "
-                      f"{steps_per_sec:.1f} steps/s ({samples_per_sec:.0f} samples/s)")
+                      f"{tokens_per_sec/1000:.1f}K tok/s")
 
                 for k, v in avg_metrics.items():
                     self.history[f'train_{k}'].append(v)
                 self.history['step'].append(self.global_step)
+                self.history['tokens_seen'].append(self.tokens_seen)
 
                 running_metrics = defaultdict(float)
                 running_count = 0
@@ -425,7 +554,6 @@ class WikipediaTrainer:
                     if isinstance(v, (int, float)):
                         self.history[f'val_{k}'].append(v)
 
-                # Print gate values
                 if hasattr(self.model, 'get_gate_values'):
                     gates = self.model.get_gate_values()
                     print(f"  Cross-attn gates: {[f'{g:.3f}' for g in gates]}")
@@ -441,10 +569,13 @@ class WikipediaTrainer:
             if self.global_step % save_interval == 0:
                 self.save_checkpoint(os.path.join(save_dir, f'checkpoint_{self.global_step}.pt'))
 
+        # Final save
         self.save_checkpoint(os.path.join(save_dir, 'final_model.pt'))
 
         print("-" * 60)
-        print("Training complete!")
+        print("Epoch complete!")
+        print(f"Total steps: {self.global_step}")
+        print(f"Total tokens: {self.tokens_seen:,}")
         print(f"Best validation loss: {self.best_val_loss:.4f}")
         print_gpu_memory("Final ")
 
@@ -459,9 +590,10 @@ class WikipediaTrainer:
             'best_val_loss': self.best_val_loss,
             'history': dict(self.history),
             'global_step': self.global_step,
+            'tokens_seen': self.tokens_seen,
         }, path)
 
-    def load_checkpoint(self, path: str) -> int:
+    def load_checkpoint(self, path: str):
         checkpoint = torch.load(path, map_location=self.device, weights_only=False)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -469,20 +601,20 @@ class WikipediaTrainer:
         self.best_val_loss = checkpoint.get('best_val_loss', float('inf'))
         self.history = defaultdict(list, checkpoint.get('history', {}))
         self.global_step = checkpoint.get('global_step', 0)
-        return self.global_step
+        self.tokens_seen = checkpoint.get('tokens_seen', 0)
 
 
 # =============================================================================
 # Main Training Function
 # =============================================================================
 
-def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
-    """Main training function for 125M Wikipedia model."""
+def train_openwebtext(config: Dict = None, resume_from: str = None):
+    """Main training function."""
     if config is None:
         config = {}
 
     print("=" * 60)
-    print("125M FlashRecursiveTransformer on Wikipedia")
+    print("125M FlashRecursiveTransformer on OpenWebText")
     print("=" * 60)
 
     print(f"PyTorch version: {torch.__version__}")
@@ -494,7 +626,7 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
         print("WARNING: CUDA not available!")
         device = 'cpu'
 
-    # Merge with default 125M config
+    # Merge configs
     full_config = {**MODEL_125M_CONFIG, **config}
 
     # Create model
@@ -512,11 +644,7 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     model = model.to(device)
 
-    # Enable gradient checkpointing if requested
-    if full_config.get('gradient_checkpointing', False):
-        enable_gradient_checkpointing(model)
-
-    # Find optimal batch size (BEFORE compilation to avoid recompiling for each test)
+    # Find optimal batch size BEFORE compilation
     if full_config.get('auto_batch_size', True) and device == 'cuda':
         max_batch = find_max_batch_size(
             model=model,
@@ -542,27 +670,25 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
     full_config['actual_batch_size'] = actual_batch_size
     full_config['accumulation_steps'] = accumulation_steps
 
-    # Compile model for faster training (PyTorch 2.0+)
-    # Done AFTER batch size detection to avoid recompiling for each test
+    # Compile model
     if full_config.get('compile', True) and device == 'cuda':
-        print(f"Compiling model with torch.compile(mode='{full_config.get('compile_mode', 'max-autotune')}')...")
-        print("  (This may take 2-5 minutes with max-autotune, but speeds up training significantly)")
-        model = torch.compile(model, mode=full_config.get('compile_mode', 'max-autotune'))
+        compile_mode = full_config.get('compile_mode', 'max-autotune')
+        print(f"Compiling model with torch.compile(mode='{compile_mode}')...")
+        print("  (This may take 2-5 minutes with max-autotune)")
+        model = torch.compile(model, mode=compile_mode)
         print("Model compiled!")
 
     # Create dataloaders
-    train_loader, val_loader, tokenizer = create_wikipedia_dataloaders(
+    train_loader, val_loader, tokenizer = create_openwebtext_dataloaders(
         tokenizer_name="gpt2",
         max_seq_len=full_config['max_seq_len'],
         batch_size=actual_batch_size,
         num_workers=full_config.get('num_workers', 4),
         val_samples=full_config.get('val_samples', 1000),
-        dataset_name=full_config.get('dataset_name', "omarkamali/wikipedia-monthly"),
-        dataset_config=full_config.get('dataset_config', "20251201.en"),
     )
 
     # Create trainer
-    trainer = WikipediaTrainer(
+    trainer = OpenWebTextTrainer(
         model=model,
         tokenizer=tokenizer,
         train_loader=train_loader,
@@ -575,11 +701,10 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
     if resume_from is not None:
         print(f"Resuming from {resume_from}...")
         trainer.load_checkpoint(resume_from)
-        print(f"Resumed at step {trainer.global_step}")
+        print(f"Resumed at step {trainer.global_step}, tokens: {trainer.tokens_seen:,}")
 
-    history = trainer.train(
-        total_steps=full_config.get('total_steps', 100000),
-        save_dir=full_config.get('save_dir', 'checkpoints_wikipedia_125m'),
+    history = trainer.train_one_epoch(
+        save_dir=full_config.get('save_dir', 'checkpoints_openwebtext'),
         log_interval=full_config.get('log_interval', 100),
         eval_interval=full_config.get('eval_interval', 2000),
         save_interval=full_config.get('save_interval', 10000)
@@ -589,8 +714,7 @@ def train_wikipedia_125m(config: Dict = None, resume_from: str = None):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train 125M Recursive Transformer on Wikipedia')
-    parser.add_argument('--steps', type=int, default=100000, help='Total training steps')
+    parser = argparse.ArgumentParser(description='Train 125M Recursive Transformer on OpenWebText')
     parser.add_argument('--batch-size', type=int, default=32, help='Manual batch size')
     parser.add_argument('--target-batch-size', type=int, default=256, help='Target effective batch size')
     parser.add_argument('--no-auto-batch', action='store_true', help='Disable auto batch size')
@@ -598,22 +722,17 @@ if __name__ == '__main__':
     parser.add_argument('--max-iters', type=int, default=5, help='Max recursive iterations')
     parser.add_argument('--seq-len', type=int, default=512, help='Max sequence length')
     parser.add_argument('--resume', type=str, default=None, help='Checkpoint to resume from')
-    parser.add_argument('--save-dir', type=str, default='checkpoints_wikipedia_125m', help='Save directory')
-    parser.add_argument('--gradient-checkpointing', action='store_true', help='Enable gradient checkpointing')
+    parser.add_argument('--save-dir', type=str, default='checkpoints_openwebtext', help='Save directory')
     parser.add_argument('--no-compile', action='store_true', help='Disable torch.compile()')
     parser.add_argument('--compile-mode', type=str, default='max-autotune',
                         choices=['default', 'reduce-overhead', 'max-autotune'],
-                        help='torch.compile mode (default: max-autotune for best performance)')
-    parser.add_argument('--convergence-threshold', type=float, default=0.95,
-                        help='Cosine similarity threshold for hidden state convergence (done supervision)')
-    parser.add_argument('--num-workers', type=int, default=4,
-                        help='Number of DataLoader workers for prefetching (default: 4)')
+                        help='torch.compile mode')
+    parser.add_argument('--num-workers', type=int, default=4, help='DataLoader workers')
 
     args = parser.parse_args()
 
     config = {
-        # Training params
-        'total_steps': args.steps,
+        # Training
         'learning_rate': args.lr,
         'weight_decay': 0.1,
         'warmup_steps': 2000,
@@ -625,17 +744,15 @@ if __name__ == '__main__':
         'auto_batch_size': not args.no_auto_batch,
         'batch_size_safety_margin': 0.8,
 
-        # Model overrides
+        # Model
         'max_iterations': args.max_iters,
         'max_seq_len': args.seq_len,
-        'gradient_checkpointing': args.gradient_checkpointing,
         'compile': not args.no_compile,
         'compile_mode': args.compile_mode,
 
-        # Loss weights
+        # Loss
         'iteration_cost': 0.01,
         'done_supervision_weight': 0.5,
-        'convergence_threshold': args.convergence_threshold,
 
         # Logging
         'save_dir': args.save_dir,
@@ -643,9 +760,7 @@ if __name__ == '__main__':
         'eval_interval': 2000,
         'save_interval': 10000,
         'val_samples': 1000,
-
-        # DataLoader
         'num_workers': args.num_workers,
     }
 
-    train_wikipedia_125m(config, resume_from=args.resume)
+    train_openwebtext(config, resume_from=args.resume)

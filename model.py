@@ -358,6 +358,7 @@ class RecursiveTransformer(nn.Module):
         all_hidden_states = []
         all_done_logits = []  # [num_iters] of [batch, seq_len]
         all_done_probs = []
+        all_outputs = []  # [num_iters] of [batch, seq_len, vocab]
         cross_attention_weights = []
 
         for iteration in range(self.max_iterations):
@@ -387,6 +388,10 @@ class RecursiveTransformer(nn.Module):
                 all_hidden_states.append(x_iter.detach().clone())
             else:
                 all_hidden_states.append(x_iter)
+
+            # Compute output at this iteration
+            iter_output = self.output_head(self.output_norm(x_iter))
+            all_outputs.append(iter_output)
 
             # Per-position done classification
             done_logits = self.done_classifier(x_iter)  # [batch, seq_len]
@@ -423,16 +428,16 @@ class RecursiveTransformer(nn.Module):
             first_done[never_done] = num_iterations
             iterations_per_position = first_done.float()
 
-        # Only compute output head on final iteration
-        final_hidden = all_hidden_states[-1]
-        output = self.output_head(self.output_norm(final_hidden))
+        # Final output from last iteration
+        output = all_outputs[-1]
 
         metadata = {
             'num_iterations': num_iterations,
             'done_logits': stacked_done_logits,  # [batch, num_iters, seq_len]
             'done_probs': stacked_done_probs,    # [batch, num_iters, seq_len]
             'iterations_per_position': iterations_per_position,  # [batch, seq_len]
-            'all_hidden_states': all_hidden_states,  # Always return for convergence-based done supervision
+            'all_outputs': all_outputs,
+            'all_hidden_states': all_hidden_states if return_all_states else None,
             'cross_attention_weights': cross_attention_weights if return_all_states else None
         }
 
@@ -602,31 +607,30 @@ def compute_loss(
     metadata: Dict,
     iteration_cost: float = 0.01,
     done_supervision_weight: float = 0.5,
-    convergence_threshold: float = 0.95,
     pad_token_id: Optional[int] = None,
     tokenizer: Any = None
 ) -> Tuple[torch.Tensor, Dict]:
     """
-    Per-position loss with convergence-based done classifier supervision.
+    Per-position loss with done classifier supervision.
 
     Loss components:
     1. Task loss: Cross-entropy on final output
-    2. Done supervision: Per-position BCE loss - position learns when hidden state has CONVERGED
+    2. Done supervision: Per-position BCE loss - position learns when ITS token is correct
     3. Iteration cost: Penalty for positions using more iterations
 
-    The done classifier learns per-token based on hidden state convergence:
-    - High cosine similarity to final hidden state → position is "done"
-    - This is more efficient than checking prediction correctness at each iteration
+    The done classifier learns per-token:
+    - "The" → fires done at iter 1 (easy token)
+    - "8" (computed) → fires done at iter 4 (needed more thinking)
 
     Args:
         tokenizer: Optional - if provided, computes number-only accuracy for evaluation
     """
     device = output.device
     batch_size, seq_len = output.size(0), output.size(1)
-    all_hidden_states = metadata['all_hidden_states']  # List of [batch, seq_len, d_model]
+    all_outputs = metadata['all_outputs']
     done_logits = metadata['done_logits']  # [batch, num_iters, seq_len]
     done_probs = metadata['done_probs']    # [batch, num_iters, seq_len]
-    num_iters = len(all_hidden_states)
+    num_iters = len(all_outputs)
 
     # 1. Task loss on final output
     if pad_token_id is not None:
@@ -643,29 +647,29 @@ def compute_loss(
             reduction='mean'
         )
 
-    # 2. Convergence-based done classifier supervision
-    # Get final hidden state as reference
-    final_hidden = all_hidden_states[-1]  # [batch, seq_len, d_model]
+    # 2. Per-position done classifier supervision
+    # For each position at each iteration: is the prediction correct?
+    per_position_correct = []
+    per_iter_accuracies = []
 
-    # Compute convergence targets for each iteration
-    per_iter_similarities = []
-    done_targets_list = []
+    for iter_idx, iter_output in enumerate(all_outputs):
+        predictions = iter_output.argmax(dim=-1)  # [batch, seq_len]
+        correct = (predictions == target).float()  # [batch, seq_len]
 
-    # Stack all hidden states: [num_iters, batch, seq_len, d_model]
-    stacked_hidden = torch.stack(all_hidden_states, dim=0)
+        # For overall accuracy, we care about answer positions
+        if pad_token_id is not None:
+            answer_mask = (target != pad_token_id)
+            seq_correct = ((predictions == target) | ~answer_mask).all(dim=-1).float()
+        else:
+            seq_correct = (predictions == target).all(dim=-1).float()
 
-    # Normalize all at once
-    stacked_norm = F.normalize(stacked_hidden, p=2, dim=-1)
-    final_norm = stacked_norm[-1]  # [batch, seq_len, d_model]
+        per_position_correct.append(correct)
+        per_iter_accuracies.append(seq_correct.mean().item())
 
-    # Broadcast similarity: [num_iters, batch, seq_len]
-    similarities = (stacked_norm * final_norm.unsqueeze(0)).sum(dim=-1)
+    # Stack: [batch, num_iters, seq_len]
+    done_targets = torch.stack(per_position_correct, dim=1)
 
-    # Threshold
-    done_targets = (similarities > convergence_threshold).float()
-    done_targets = done_targets.permute(1, 0, 2)  # [batch, num_iters, seq_len]
-
-    # Cumulative max over iterations: once converged, stays "done"
+    # Cumulative max over iterations: once correct, stays "done"
     done_targets_cummax, _ = torch.cummax(done_targets, dim=1)
 
     # Create mask for valid positions (non-padding in target)
@@ -747,8 +751,8 @@ def compute_loss(
         'avg_iterations': avg_iters,
         'max_iterations_run': num_iters,
         'mean_done_prob': done_probs[:, -1, :].mean().item(),
-        'per_iter_similarity': per_iter_similarities,
-        'final_accuracy': final_accuracy,
+        'per_iter_accuracy': per_iter_accuracies,
+        'final_accuracy': per_iter_accuracies[-1] if per_iter_accuracies else 0.0,
     }
 
     if number_accuracy is not None:
@@ -1242,7 +1246,7 @@ class FlashRecursiveTransformer(nn.Module):
         x = self.embedding(input_ids) * math.sqrt(self.d_model)
         x = x + self.pos_embedding(positions)
 
-        all_hidden_states = []
+        all_outputs = []
         all_done_logits = []
         all_done_probs = []
 
@@ -1259,12 +1263,9 @@ class FlashRecursiveTransformer(nn.Module):
             for layer in self.layers:
                 x_iter = layer(x_iter, prev_state=prev_state, is_causal=True)
 
-            # Store this iteration's hidden states (needed for convergence-based done supervision)
-            # Don't detach during training - need gradients to flow through similarity computation
-            if detach_hidden:
-                all_hidden_states.append(x_iter.detach().clone())
-            else:
-                all_hidden_states.append(x_iter)
+            # Compute output at this iteration
+            iter_output = self.output_head(self.output_norm(x_iter))
+            all_outputs.append(iter_output)
 
             # Per-position done classification
             done_logits = self.done_classifier(x_iter)
@@ -1300,17 +1301,15 @@ class FlashRecursiveTransformer(nn.Module):
             first_done[never_done] = num_iterations
             iterations_per_position = first_done.float()
 
-        # Only compute output head on final iteration (expensive: d_model -> vocab_size)
-        final_hidden = all_hidden_states[-1]
-        output = self.output_head(self.output_norm(final_hidden))
+        # Final output from last iteration
+        output = all_outputs[-1]
 
         metadata = {
             'num_iterations': num_iterations,
             'done_logits': stacked_done_logits,
             'done_probs': stacked_done_probs,
             'iterations_per_position': iterations_per_position,
-            'all_hidden_states': all_hidden_states,  # Always return for convergence computation
-            'cross_attention_weights': None  # Not tracked in flash version
+            'all_outputs': all_outputs,
         }
 
         return output, metadata
