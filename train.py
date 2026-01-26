@@ -80,14 +80,14 @@ def _test_batch_size(
 
         if use_amp:
             with autocast('cuda', dtype=torch.bfloat16):
-                output, metadata = model(dummy_input, force_iterations=model.max_iterations)
+                output, metadata = model(dummy_input, max_iters=model.max_iterations)
                 loss = F.cross_entropy(
                     output.view(-1, output.size(-1)),
                     dummy_target.view(-1),
                     reduction='mean'
                 )
         else:
-            output, metadata = model(dummy_input, force_iterations=model.max_iterations)
+            output, metadata = model(dummy_input, max_iters=model.max_iterations)
             loss = F.cross_entropy(
                 output.view(-1, output.size(-1)),
                 dummy_target.view(-1),
@@ -452,7 +452,7 @@ class OpenWebTextTrainer:
 
             output, metadata = self.model(
                 input_ids,
-                force_iterations=self.model.max_iterations,
+                max_iters=self.model.max_iterations,
                 threshold=0.7
             )
             loss, metrics = compute_lm_loss(

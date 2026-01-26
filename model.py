@@ -323,7 +323,7 @@ class RecursiveTransformer(nn.Module):
         attention_mask: Optional[torch.Tensor] = None,
         threshold: float = 0.5,
         return_all_states: bool = False,
-        force_iterations: Optional[int] = None,
+        max_iters: Optional[int] = None,
         detach_hidden: bool = False
     ) -> Tuple[torch.Tensor, Dict]:
         """
@@ -334,7 +334,7 @@ class RecursiveTransformer(nn.Module):
             attention_mask: [batch_size, seq_len] attention mask (1 = attend, 0 = ignore)
             threshold: Done probability threshold for early stopping (inference only)
             return_all_states: Whether to return hidden states from all iterations
-            force_iterations: If set, run exactly this many iterations
+            max_iters: Cap on iterations (can still early-stop before this)
             detach_hidden: If True, detach hidden states (saves memory)
 
         Returns:
@@ -355,13 +355,16 @@ class RecursiveTransformer(nn.Module):
             diagonal=1
         )
 
+        # Cap iterations (default to model's max)
+        iter_cap = max_iters if max_iters is not None else self.max_iterations
+
         all_hidden_states = []
         all_done_logits = []  # [num_iters] of [batch, seq_len]
         all_done_probs = []
         all_outputs = []  # [num_iters] of [batch, seq_len, vocab]
         cross_attention_weights = []
 
-        for iteration in range(self.max_iterations):
+        for iteration in range(iter_cap):
             # Add iteration embedding (broadcast to all positions)
             iter_emb = self.iteration_embedding(
                 torch.full((batch_size,), iteration, device=device, dtype=torch.long)
@@ -402,14 +405,9 @@ class RecursiveTransformer(nn.Module):
             # Update x for next iteration
             x = x_iter
 
-            # Early stopping conditions
-            if force_iterations is not None:
-                if iteration + 1 >= force_iterations:
-                    break
-            elif not self.training:
-                # During inference: stop when all positions are done
-                if done_probs.min() > threshold:
-                    break
+            # Early stopping (inference only): stop when all positions are done
+            if not self.training and done_probs.min() > threshold:
+                break
 
         num_iterations = iteration + 1
 
