@@ -11,7 +11,8 @@ import torch
 from typing import Optional, Union
 
 from model import RecursiveTransformer, FlashRecursiveTransformer
-from dataset_tinystories import get_tokenizer, TINYSTORIES_VOCAB_SIZE
+from dataset import get_tokenizer
+from config import GPT2_VOCAB_SIZE
 
 
 def load_model(checkpoint_path: str, device: str = 'cuda', force_flash: bool = None):
@@ -37,7 +38,7 @@ def load_model(checkpoint_path: str, device: str = 'cuda', force_flash: bool = N
     model_type = "FlashRecursiveTransformer" if use_flash else "RecursiveTransformer"
 
     model = ModelClass(
-        vocab_size=config.get('vocab_size', TINYSTORIES_VOCAB_SIZE),
+        vocab_size=config.get('vocab_size', GPT2_VOCAB_SIZE),
         d_model=config.get('d_model', 512),
         n_heads=config.get('n_heads', 8),
         n_layers=config.get('n_layers', 8),
