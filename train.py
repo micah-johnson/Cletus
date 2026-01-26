@@ -446,8 +446,6 @@ class OpenWebTextTrainer:
             input_ids = batch['input_ids'].to(self.device)
             target_ids = batch['target_ids'].to(self.device)
 
-            torch.compiler.cudagraph_mark_step_begin()
-
             output, metadata = self.model(
                 input_ids,
                 force_iterations=self.model.max_iterations,
@@ -711,9 +709,6 @@ if __name__ == '__main__':
     parser.add_argument('--seq-len', type=int, default=512, help='Max sequence length')
     parser.add_argument('--resume', type=str, default=None, help='Checkpoint to resume from')
     parser.add_argument('--save-dir', type=str, default='checkpoints_openwebtext', help='Save directory')
-    parser.add_argument('--compile-mode', type=str, default='max-autotune',
-                        choices=['default', 'reduce-overhead', 'max-autotune'],
-                        help='torch.compile mode')
     parser.add_argument('--num-workers', type=int, default=4, help='DataLoader workers')
 
     args = parser.parse_args()
@@ -734,8 +729,6 @@ if __name__ == '__main__':
         # Model
         'max_iterations': args.max_iters,
         'max_seq_len': args.seq_len,
-        'compile': not args.no_compile,
-        'compile_mode': args.compile_mode,
 
         # Loss
         'iteration_cost': 0.01,
