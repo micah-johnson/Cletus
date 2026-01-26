@@ -4,3 +4,4 @@ matplotlib>=3.5.0
 scikit-learn>=1.0.0
 transformers>=4.30.0
 sentencepiece>=0.1.99
+datasets>=4.5.0
